@@ -12,6 +12,15 @@ Jogo de sobrevivência zumbi 3D em mundo aberto para celular (Android), ambienta
 2. Baixe o APK na aba **Releases** (marcado como pré-lançamento) ou nos **Artifacts** da execução.
 3. Instale no Android (pode ser preciso permitir "instalar apps desconhecidos").
 
+## Controles
+
+**No celular**
+- Metade esquerda da tela: joystick que aparece onde você toca. Empurre até a borda pra **correr** (gasta stamina).
+- Metade direita: arraste pra olhar em volta.
+- Botões: **ATACAR** (taco), **AÇÃO/PEGAR**, **AGACHAR** (zumbis te ouvem de menos longe), **CÂMERA** (3ª ↔ 1ª pessoa) e **II** (pausa).
+
+**No computador (pra testar no editor)**: WASD anda, Shift corre, C agacha, V troca a câmera, F ou Espaço ataca, E usa/pega, Esc pausa.
+
 ## Estrutura
 
 ```
