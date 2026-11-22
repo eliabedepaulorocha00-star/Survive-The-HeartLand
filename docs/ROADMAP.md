@@ -10,13 +10,14 @@ Plano baseado em `PROMPT_MASTER.md`, adaptado de Unity (C#) para Godot 4 (GDScri
 
 ## Fase 3 – Mundo (prompts 12 a 15)
 - [ ] Carregamento do mapa por chunks
-- [ ] Ciclo dia/noite e clima
+- [x] Ciclo dia/noite (24h, duração configurável) e clima: ensolarado, nublado, chuva forte, tempestade com raios e neblina densa. Chuva abafa os passos, molha o jogador e neblina/noite reduzem a visão dos zumbis
 - [ ] Interior/exterior
 - [ ] Corte de água e energia
 
 ## Fase 4 – Menus e servidores (prompts 16 a 18)
 - [x] Menu principal (versão inicial)
-- [ ] Menu de configurações com presets de desempenho
+- [x] Menu de configurações (Gráficos, Controles, Áudio, Jogo) com presets Batata a Ultra, escala de resolução, limite de FPS, distância, sombras, MSAA, bloom e contador de FPS/RAM
+  - SSAO e reflexos na água ficam indisponíveis/"em breve" (o renderizador Compatibility não tem SSAO)
 - [ ] Criação de partida (single/co-op) com regras sandbox
 
 ## Fase 5 – Sobrevivência (prompts 19 a 22)

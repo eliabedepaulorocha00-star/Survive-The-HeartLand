@@ -6,12 +6,17 @@ extends Node3D
 const PlayerScript = preload("res://scripts/player/player.gd")
 const ZombieScript = preload("res://scripts/world/zombie.gd")
 const HudScript = preload("res://scripts/ui/hud.gd")
+const TimeWeatherScript = preload("res://scripts/world/time_weather.gd")
 
 const TREE_COUNT := 70
 const WORLD_LIMIT := 95.0
 const PLAYER_START := Vector3(0.0, 0.2, 14.0)
 
 var _player
+var _sun: DirectionalLight3D
+var _env: Environment
+var _sky_mat: ProceduralSkyMaterial
+var _time_weather
 
 
 func _ready() -> void:
@@ -24,6 +29,9 @@ func _ready() -> void:
 	_spawn_player()
 	_spawn_zombies()
 	_spawn_hud()
+	_spawn_time_weather()
+	GameSettings.changed.connect(_apply_settings)
+	_apply_settings()
 	GameManager.change_state(GameManager.State.IN_GAME)
 
 
@@ -50,12 +58,16 @@ func _build_environment() -> void:
 	var env := Environment.new()
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	# A cor do ambiente é atualizada pelo ciclo dia/noite (time_weather.gd)
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.5, 0.5, 0.55)
 	env.ambient_light_energy = 0.8
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.55, 0.50, 0.50)
 	env.fog_density = 0.012
+	env.glow_intensity = 0.8
+	env.glow_hdr_threshold = 1.0
 
 	var we := WorldEnvironment.new()
 	we.environment = env
@@ -68,6 +80,26 @@ func _build_environment() -> void:
 	sun.shadow_enabled = true
 	sun.directional_shadow_max_distance = 50.0
 	add_child(sun)
+
+	_sun = sun
+	_env = env
+	_sky_mat = sky_mat
+
+
+## Sombras e bloom seguem as configurações do jogador.
+func _apply_settings() -> void:
+	if _sun == null or _env == null:
+		return
+	var level := clampi(GameSettings.shadows, 0, 3)
+	_sun.shadow_enabled = level > 0
+	_sun.directional_shadow_max_distance = GameSettings.SHADOW_DISTANCE_M[level]
+	_env.glow_enabled = GameSettings.bloom
+
+
+func _spawn_time_weather() -> void:
+	_time_weather = TimeWeatherScript.new()
+	add_child(_time_weather)
+	_time_weather.setup(_sun, _env, _sky_mat, _player)
 
 
 # --- Terreno ---
@@ -127,8 +159,8 @@ func _build_house(pos: Vector3) -> void:
 		_add_box(house, Vector3(1.6, 0.18, 0.08), Vector3(-2.9, 1.2 + i * 0.4, 4.18), wood, false, Vector3(0.0, 0.0, 4.0 - i * 4.0))
 		_add_box(house, Vector3(1.6, 0.18, 0.08), Vector3(2.9, 1.2 + i * 0.4, 4.18), wood, false, Vector3(0.0, 0.0, -4.0 + i * 4.0))
 	# Telhado de duas águas (visual) e empenas
-	_add_box(house, Vector3(10.8, 0.2, 5.2), Vector3(0.0, 4.3, 2.25), roof, false, Vector3(30.0, 0.0, 0.0))
-	_add_box(house, Vector3(10.8, 0.2, 5.2), Vector3(0.0, 4.3, -2.25), roof, false, Vector3(-30.0, 0.0, 0.0))
+	_add_box(house, Vector3(10.8, 0.2, 5.2), Vector3(0.0, 4.3, 2.25), roof, true, Vector3(30.0, 0.0, 0.0))
+	_add_box(house, Vector3(10.8, 0.2, 5.2), Vector3(0.0, 4.3, -2.25), roof, true, Vector3(-30.0, 0.0, 0.0))
 	for sx in [-5.0, 5.0]:
 		var gable := MeshInstance3D.new()
 		var prism := PrismMesh.new()

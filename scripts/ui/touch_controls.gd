@@ -41,18 +41,20 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	resized.connect(_layout_buttons)
+	GameSettings.changed.connect(_layout_buttons)
 	_layout_buttons()
 
 
 func _layout_buttons() -> void:
 	var w := size.x
 	var h := size.y
+	var s := GameSettings.button_scale  # tamanho dos botões vem das configurações
 	_buttons = {
-		"attack": {"center": Vector2(w - 110.0, h - 120.0), "radius": 58.0, "touch": -1},
-		"action": {"center": Vector2(w - 250.0, h - 85.0), "radius": 44.0, "touch": -1},
-		"crouch": {"center": Vector2(w - 70.0, h - 250.0), "radius": 38.0, "touch": -1},
-		"camera": {"center": Vector2(w - 190.0, h - 215.0), "radius": 36.0, "touch": -1},
-		"pause": {"center": Vector2(w - 50.0, 50.0), "radius": 28.0, "touch": -1},
+		"attack": {"center": Vector2(w - 110.0, h - 120.0), "radius": 58.0 * s, "touch": -1},
+		"action": {"center": Vector2(w - 250.0, h - 85.0), "radius": 44.0 * s, "touch": -1},
+		"crouch": {"center": Vector2(w - 70.0, h - 250.0), "radius": 38.0 * s, "touch": -1},
+		"camera": {"center": Vector2(w - 190.0, h - 215.0), "radius": 36.0 * s, "touch": -1},
+		"pause": {"center": Vector2(w - 50.0, 50.0), "radius": 28.0 * s, "touch": -1},
 	}
 	queue_redraw()
 

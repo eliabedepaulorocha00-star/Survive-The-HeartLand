@@ -2,6 +2,8 @@ extends Control
 ## Menu principal (versão inicial): fundo em gradiente com silhueta de casa,
 ## título e botões estilo placa de metal à esquerda.
 
+const SettingsMenuScript = preload("res://scripts/ui/settings_menu.gd")
+
 var _toast: Label
 var _toast_tween: Tween
 
@@ -110,7 +112,7 @@ func _build_buttons() -> void:
 	_add_button(box, "JOGAR", func(): GameManager.start_game())
 	_add_button(box, "MULTIPLAYER", func(): _show_toast("Multiplayer: em breve (Fase 8)"))
 	_add_button(box, "CUSTOMIZAR SOBREVIVENTE", func(): _show_toast("Customização: em breve"))
-	_add_button(box, "CONFIGURAÇÕES", func(): _show_toast("Configurações: em breve (Fase 4)"))
+	_add_button(box, "CONFIGURAÇÕES", func(): _open_settings())
 	_add_button(box, "SAIR", func(): get_tree().quit())
 
 
@@ -165,6 +167,11 @@ func _build_footer() -> void:
 	_toast.modulate.a = 0.0
 	_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_toast)
+
+
+func _open_settings() -> void:
+	var s = SettingsMenuScript.new()
+	add_child(s)
 
 
 func _show_toast(text: String) -> void:

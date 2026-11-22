@@ -3,6 +3,7 @@ extends CanvasLayer
 ## avisos rápidos e telas de pausa / morte. Também cria os controles touch.
 
 const TouchControlsScript = preload("res://scripts/ui/touch_controls.gd")
+const SettingsMenuScript = preload("res://scripts/ui/settings_menu.gd")
 
 var player
 var controls
@@ -11,6 +12,8 @@ var _stamina_fill: ColorRect
 var _health_fill: ColorRect
 var _fps_label: Label
 var _kills_label: Label
+var _wet_label: Label
+var _clock_label: Label
 var _hint_label: Label
 var _toast_label: Label
 var _toast_tween: Tween
@@ -31,6 +34,9 @@ func _ready() -> void:
 	_stamina_fill = _make_bar(44.0, Color(0.90, 0.78, 0.20))
 	_fps_label = _make_label(Vector2(24.0, 68.0), 15, Color(0.8, 0.85, 0.8, 0.8))
 	_kills_label = _make_label(Vector2(24.0, 90.0), 18, Color(0.9, 0.9, 0.85))
+	_wet_label = _make_label(Vector2(24.0, 116.0), 16, Color(0.6, 0.8, 1.0))
+	_clock_label = _make_label(Vector2(0.0, 16.0), 20, Color(0.92, 0.90, 0.80))
+	_clock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hint_label = _make_label(Vector2(0.0, 0.0), 22, Color(1.0, 0.9, 0.6))
 	_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_toast_label = _make_label(Vector2(0.0, 0.0), 22, Color(0.95, 0.75, 0.35))
@@ -39,6 +45,9 @@ func _ready() -> void:
 
 	var pause_parts := _make_panel("PAUSADO", [
 		["CONTINUAR", func(): GameManager.change_state(GameManager.State.IN_GAME)],
+		["CONFIGURAÇÕES", func(): _open_settings()],
+		["[TESTE] MUDAR CLIMA", func(): GameManager.debug_command.emit("next_weather")],
+		["[TESTE] AVANÇAR 3 HORAS", func(): GameManager.debug_command.emit("advance_3h")],
 		["MENU PRINCIPAL", func(): GameManager.back_to_menu()],
 	])
 	_pause_panel = pause_parts["panel"]
@@ -61,10 +70,16 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	_fps_label.text = "FPS: %d" % Engine.get_frames_per_second()
+	_fps_label.visible = GameSettings.show_stats
+	if GameSettings.show_stats:
+		var ram_mb := int(OS.get_static_memory_usage() / 1048576.0)
+		var draws := int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
+		_fps_label.text = "FPS %d  |  RAM %d MB  |  Draw %d" % [Engine.get_frames_per_second(), ram_mb, draws]
 	_kills_label.text = "Zumbis abatidos: %d" % GameManager.kills
+	_clock_label.text = GameManager.clock_text
 	if player == null or not is_instance_valid(player):
 		return
+	_wet_label.text = ("Molhado: %d%%" % int(player.wetness * 100.0)) if player.wetness > 0.05 else ""
 	_health_fill.size.x = 236.0 * clampf(player.health / player.max_health, 0.0, 1.0)
 	_stamina_fill.size.x = 236.0 * clampf(player.stamina / player.max_stamina, 0.0, 1.0)
 	_stamina_fill.color = Color(0.85, 0.35, 0.15) if player.exhausted else Color(0.90, 0.78, 0.20)
@@ -77,6 +92,8 @@ func _reposition() -> void:
 	_hint_label.size = Vector2(vp.x, 40.0)
 	_toast_label.position = Vector2(0.0, vp.y * 0.18)
 	_toast_label.size = Vector2(vp.x, 40.0)
+	_clock_label.position = Vector2(0.0, 16.0)
+	_clock_label.size = Vector2(vp.x, 30.0)
 
 
 func _make_bar(top: float, color: Color) -> ColorRect:
@@ -145,6 +162,11 @@ func _on_state_changed(_old_state: int, new_state: int) -> void:
 	_dead_panel.visible = (new_state == GameManager.State.PLAYER_DEAD)
 	if new_state == GameManager.State.PLAYER_DEAD:
 		_dead_info.text = "Zumbis abatidos: %d" % GameManager.kills
+
+
+func _open_settings() -> void:
+	var s = SettingsMenuScript.new()
+	add_child(s)
 
 
 func _show_toast(text: String) -> void:

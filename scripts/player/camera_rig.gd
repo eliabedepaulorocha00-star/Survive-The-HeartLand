@@ -12,8 +12,6 @@ const MAX_PITCH := 70.0
 
 var yaw: float = 0.0  # radianos
 var pitch: float = -0.15  # radianos
-var look_sensitivity: float = 0.16  # graus por pixel
-var look_accel: float = 0.8  # quanto o arrasto rápido acelera a mira
 var target_height: float = 1.55
 var blend: float = 0.0  # 0 = terceira pessoa, 1 = primeira pessoa
 var target_blend: float = 0.0
@@ -41,7 +39,14 @@ func _ready() -> void:
 	camera.current = true
 	_arm.add_child(camera)
 
+	GameSettings.changed.connect(_apply_settings)
+	_apply_settings()
 	_apply_rotation()
+
+
+## Distância de renderização vem das configurações.
+func _apply_settings() -> void:
+	camera.far = GameSettings.distance_m()
 
 
 func _process(delta: float) -> void:
@@ -63,10 +68,11 @@ func _process(delta: float) -> void:
 
 ## Gira a câmera com o arrasto do dedo (rel em pixels).
 func apply_look(rel: Vector2) -> void:
-	var boost := 1.0 + look_accel * clampf(rel.length() / 30.0, 0.0, 1.0)
-	var k := deg_to_rad(look_sensitivity) * boost
+	var boost := 1.0 + GameSettings.look_accel * clampf(rel.length() / 30.0, 0.0, 1.0)
+	var k := deg_to_rad(GameSettings.look_sensitivity) * boost
+	var invert := -1.0 if GameSettings.invert_y else 1.0
 	yaw -= rel.x * k
-	pitch = clampf(pitch - rel.y * k, deg_to_rad(MIN_PITCH), deg_to_rad(MAX_PITCH))
+	pitch = clampf(pitch - rel.y * k * invert, deg_to_rad(MIN_PITCH), deg_to_rad(MAX_PITCH))
 	_apply_rotation()
 
 

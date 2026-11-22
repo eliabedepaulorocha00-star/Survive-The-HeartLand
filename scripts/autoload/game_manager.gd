@@ -6,12 +6,20 @@ enum State { MAIN_MENU, LOBBY_SETUP, LOADING_WORLD, IN_GAME, PAUSED, PLAYER_DEAD
 
 signal state_changed(old_state: int, new_state: int)
 signal message(text: String)
+signal debug_command(cmd: String)
 
 const MAIN_MENU_SCENE := "res://scenes/main_menu.tscn"
 const GAME_SCENE := "res://scenes/game.tscn"
 
 var state: int = State.MAIN_MENU
 var kills: int = 0
+
+# Publicados pelo sistema de dia/noite e clima (time_weather.gd)
+var visibility_factor: float = 1.0  # multiplica o alcance de visão dos zumbis
+var noise_factor: float = 1.0  # multiplica o ruído dos passos (chuva abafa)
+var rain_amount: float = 0.0
+var weather_name: String = "Nublado"
+var clock_text: String = ""
 
 
 func _ready() -> void:
@@ -34,6 +42,9 @@ func change_state(new_state: int) -> void:
 		State.LOADING_WORLD:
 			get_tree().paused = false
 			kills = 0
+			visibility_factor = 1.0
+			noise_factor = 1.0
+			rain_amount = 0.0
 			get_tree().change_scene_to_file(GAME_SCENE)
 		State.IN_GAME:
 			get_tree().paused = false

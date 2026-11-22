@@ -35,6 +35,9 @@ var sprinting: bool = false
 var dead: bool = false
 var noise_radius: float = 2.0  # raio em que os zumbis "ouvem" o jogador
 var hint_text: String = ""
+var wetness: float = 0.0  # 0 = seco, 1 = encharcado (a chuva molha, o abrigo seca)
+var sheltered: bool = false  # tem teto por cima?
+var _shelter_timer: float = 0.0
 
 var _body: Node3D
 var _weapon_pivot: Node3D
@@ -131,7 +134,7 @@ func _physics_process(delta: float) -> void:
 	elif _regen_timer > 0.0:
 		_regen_timer -= delta
 	else:
-		stamina += STAMINA_REGEN * delta
+		stamina += STAMINA_REGEN * (1.0 - 0.4 * wetness) * delta  # roupa molhada cansa mais
 	stamina = clampf(stamina, 0.0, max_stamina)
 	if stamina <= 0.0 and not exhausted:
 		exhausted = true
@@ -148,6 +151,9 @@ func _physics_process(delta: float) -> void:
 		noise_radius = 22.0
 	else:
 		noise_radius = 8.0
+	noise_radius *= GameManager.noise_factor  # a chuva abafa os passos
+
+	_update_exposure(delta)
 
 	# Movimento relativo à direção da câmera
 	var yaw_basis := Basis(Vector3.UP, rig.yaw)
@@ -174,6 +180,23 @@ func _physics_process(delta: float) -> void:
 	_body.scale.y = lerpf(_body.scale.y, squash, clampf(10.0 * delta, 0.0, 1.0))
 
 	_update_pickup_hint()
+
+
+## Detecta se há teto por cima (abrigo) e atualiza o quanto o jogador está molhado.
+func _update_exposure(delta: float) -> void:
+	_shelter_timer -= delta
+	if _shelter_timer <= 0.0:
+		_shelter_timer = 0.25
+		var from := global_position + Vector3(0.0, 1.8, 0.0)
+		var query := PhysicsRayQueryParameters3D.create(from, from + Vector3(0.0, 12.0, 0.0), 1)
+		sheltered = not get_world_3d().direct_space_state.intersect_ray(query).is_empty()
+	if GameManager.rain_amount > 0.1 and not sheltered:
+		wetness += 0.012 * GameManager.rain_amount * delta
+	elif sheltered:
+		wetness -= 0.010 * delta
+	else:
+		wetness -= 0.004 * delta
+	wetness = clampf(wetness, 0.0, 1.0)
 
 
 func _read_move_input() -> Vector2:
@@ -273,6 +296,8 @@ func take_damage(amount: float) -> void:
 		return
 	health -= amount
 	rig.shake(0.5)
+	if GameSettings.vibration:
+		Input.vibrate_handheld(60)
 	if health <= 0.0:
 		health = 0.0
 		dead = true

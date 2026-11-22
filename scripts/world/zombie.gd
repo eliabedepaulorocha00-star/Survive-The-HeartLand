@@ -107,7 +107,9 @@ func _perceive(dist: float, to_player: Vector3) -> void:
 
 	var heard: bool = dist < _player.noise_radius
 	var seen: bool = false
-	if dist < SIGHT_RANGE and dist > 0.01:
+	# Neblina, chuva e noite diminuem o alcance de visão
+	var sight := SIGHT_RANGE * GameManager.visibility_factor
+	if dist < sight and dist > 0.01:
 		var fwd := -global_transform.basis.z
 		var angle := rad_to_deg(fwd.angle_to(to_player / dist))
 		if angle < SIGHT_HALF_ANGLE:
