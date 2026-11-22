@@ -33,6 +33,13 @@ jobs:
           set -e
           ANDROID_SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/lib/android-sdk}}"
           echo "Android SDK em: $ANDROID_SDK"
+          JAVAC="$(readlink -f "$(which javac)")"
+          JAVA_PATH="$(dirname "$(dirname "$JAVAC")")"
+          echo "Java em: $JAVA_PATH"
+          # Godot 4.3 pede build-tools 34 (o container só traz a 33)
+          yes | sdkmanager --sdk_root="$ANDROID_SDK" --licenses > /dev/null 2>&1 || true
+          sdkmanager --sdk_root="$ANDROID_SDK" "build-tools;34.0.0" || true
+          ls "$ANDROID_SDK/build-tools" || true
           if [ ! -f /root/debug.keystore ]; then
             keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android \
               -keystore /root/debug.keystore -storepass android \
@@ -45,6 +52,7 @@ jobs:
 
           [resource]
           export/android/android_sdk_path = "$ANDROID_SDK"
+          export/android/java_sdk_path = "$JAVA_PATH"
           export/android/debug_keystore = "/root/debug.keystore"
           export/android/debug_keystore_user = "androiddebugkey"
           export/android/debug_keystore_pass = "android"
