@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="20" fill="#1c2226"/>
+  <path d="M0 92 L30 70 L52 84 L84 58 L128 88 L128 128 L0 128 Z" fill="#2f3a3f"/>
+  <rect x="28" y="52" width="40" height="34" fill="#6b4f35"/>
+  <path d="M22 54 L48 30 L74 54 Z" fill="#3c2b1d"/>
+  <rect x="42" y="64" width="12" height="22" fill="#1c2226"/>
+  <circle cx="98" cy="30" r="12" fill="#d9a441"/>
+  <text x="64" y="118" font-family="monospace" font-size="14" font-weight="bold" fill="#c9d1d3" text-anchor="middle">STH</text>
+</svg>
