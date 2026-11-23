@@ -1,15 +1,21 @@
 extends CanvasLayer
-## HUD: barras de vida e stamina, FPS, abates, dica contextual,
-## avisos rápidos e telas de pausa / morte. Também cria os controles touch.
+## HUD: barras de vida, stamina, fome e sede, arma equipada, FPS, abates, dica
+## contextual, avisos rápidos e telas de pausa / morte / mochila.
+## Também cria os controles touch.
 
 const TouchControlsScript = preload("res://scripts/ui/touch_controls.gd")
 const SettingsMenuScript = preload("res://scripts/ui/settings_menu.gd")
+const InventoryScreenScript = preload("res://scripts/ui/inventory_screen.gd")
 
 var player
 var controls
 
 var _stamina_fill: ColorRect
 var _health_fill: ColorRect
+var _hunger_fill: ColorRect
+var _thirst_fill: ColorRect
+var _weapon_label: Label
+var _inv_screen
 var _fps_label: Label
 var _kills_label: Label
 var _wet_label: Label
@@ -30,11 +36,14 @@ func _ready() -> void:
 	controls.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(controls)
 
-	_health_fill = _make_bar(24.0, Color(0.75, 0.12, 0.12))
-	_stamina_fill = _make_bar(44.0, Color(0.90, 0.78, 0.20))
-	_fps_label = _make_label(Vector2(24.0, 68.0), 15, Color(0.8, 0.85, 0.8, 0.8))
-	_kills_label = _make_label(Vector2(24.0, 90.0), 18, Color(0.9, 0.9, 0.85))
-	_wet_label = _make_label(Vector2(24.0, 116.0), 16, Color(0.6, 0.8, 1.0))
+	_health_fill = _make_bar(24.0, Color(0.75, 0.12, 0.12), "Vida")
+	_stamina_fill = _make_bar(44.0, Color(0.90, 0.78, 0.20), "Fôlego")
+	_hunger_fill = _make_bar(64.0, Color(0.80, 0.52, 0.18), "Fome")
+	_thirst_fill = _make_bar(84.0, Color(0.28, 0.58, 0.92), "Sede")
+	_fps_label = _make_label(Vector2(24.0, 108.0), 15, Color(0.8, 0.85, 0.8, 0.8))
+	_kills_label = _make_label(Vector2(24.0, 130.0), 18, Color(0.9, 0.9, 0.85))
+	_wet_label = _make_label(Vector2(24.0, 156.0), 16, Color(0.6, 0.8, 1.0))
+	_weapon_label = _make_label(Vector2(24.0, 180.0), 16, Color(0.92, 0.90, 0.80))
 	_clock_label = _make_label(Vector2(0.0, 16.0), 20, Color(0.92, 0.90, 0.80))
 	_clock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hint_label = _make_label(Vector2(0.0, 0.0), 22, Color(1.0, 0.9, 0.6))
@@ -83,6 +92,11 @@ func _process(_delta: float) -> void:
 	_health_fill.size.x = 236.0 * clampf(player.health / player.max_health, 0.0, 1.0)
 	_stamina_fill.size.x = 236.0 * clampf(player.stamina / player.max_stamina, 0.0, 1.0)
 	_stamina_fill.color = Color(0.85, 0.35, 0.15) if player.exhausted else Color(0.90, 0.78, 0.20)
+	_hunger_fill.size.x = 236.0 * clampf(player.hunger / 100.0, 0.0, 1.0)
+	_thirst_fill.size.x = 236.0 * clampf(player.thirst / 100.0, 0.0, 1.0)
+	_hunger_fill.color = Color(0.85, 0.20, 0.15) if player.hunger < 12.0 else Color(0.80, 0.52, 0.18)
+	_thirst_fill.color = Color(0.85, 0.20, 0.15) if player.thirst < 12.0 else Color(0.28, 0.58, 0.92)
+	_weapon_label.text = "%s  |  Mochila %.1f/%.0f kg" % [player.weapon_name(), player.inventory.total_weight(), player.inventory.capacity]
 	_hint_label.text = player.hint_text
 
 
@@ -96,7 +110,7 @@ func _reposition() -> void:
 	_clock_label.size = Vector2(vp.x, 30.0)
 
 
-func _make_bar(top: float, color: Color) -> ColorRect:
+func _make_bar(top: float, color: Color, caption: String = "") -> ColorRect:
 	var bg := ColorRect.new()
 	bg.color = Color(0, 0, 0, 0.5)
 	bg.position = Vector2(24.0, top)
@@ -109,6 +123,17 @@ func _make_bar(top: float, color: Color) -> ColorRect:
 	fill.size = Vector2(236.0, 10.0)
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bg.add_child(fill)
+	if caption != "":
+		var cap := Label.new()
+		cap.text = caption
+		cap.position = Vector2(248.0, -4.0)
+		cap.add_theme_font_size_override("font_size", 14)
+		cap.add_theme_color_override("font_color", Color(0.9, 0.9, 0.85, 0.85))
+		cap.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+		cap.add_theme_constant_override("shadow_offset_x", 1)
+		cap.add_theme_constant_override("shadow_offset_y", 1)
+		cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bg.add_child(cap)
 	return fill
 
 
@@ -158,6 +183,8 @@ func _make_panel(title: String, entries: Array) -> Dictionary:
 
 
 func _on_state_changed(_old_state: int, new_state: int) -> void:
+	if new_state != GameManager.State.IN_GAME and _inv_screen != null:
+		_inv_screen.close()  # pausou ou morreu com a mochila aberta
 	_pause_panel.visible = (new_state == GameManager.State.PAUSED)
 	_dead_panel.visible = (new_state == GameManager.State.PLAYER_DEAD)
 	if new_state == GameManager.State.PLAYER_DEAD:
@@ -167,6 +194,30 @@ func _on_state_changed(_old_state: int, new_state: int) -> void:
 func _open_settings() -> void:
 	var s = SettingsMenuScript.new()
 	add_child(s)
+
+
+## Abre a mochila; se `cont` (nó de container.gd) vier, mostra também o conteúdo dele.
+func open_inventory(cont = null) -> void:
+	if _inv_screen != null or player == null or not is_instance_valid(player) or player.dead:
+		return
+	if GameManager.state != GameManager.State.IN_GAME:
+		return
+	if cont != null:
+		cont.open_loot()  # o loot só é sorteado na primeira abertura
+	_inv_screen = InventoryScreenScript.new()
+	_inv_screen.player = player
+	_inv_screen.container = cont
+	_inv_screen.closed.connect(_on_inventory_closed)
+	add_child(_inv_screen)
+	controls.blocked = true
+	player.ui_locked = true
+
+
+func _on_inventory_closed() -> void:
+	_inv_screen = null
+	controls.blocked = false
+	if player != null and is_instance_valid(player):
+		player.ui_locked = false
 
 
 func _show_toast(text: String) -> void:

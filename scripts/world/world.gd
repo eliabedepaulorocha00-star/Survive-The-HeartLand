@@ -6,6 +6,8 @@ extends Node3D
 const PlayerScript = preload("res://scripts/player/player.gd")
 const ZombieScript = preload("res://scripts/world/zombie.gd")
 const HudScript = preload("res://scripts/ui/hud.gd")
+const ContainerScript = preload("res://scripts/world/container.gd")
+const GroundItemScript = preload("res://scripts/world/ground_item.gd")
 const TimeWeatherScript = preload("res://scripts/world/time_weather.gd")
 
 const TREE_COUNT := 70
@@ -25,6 +27,7 @@ func _ready() -> void:
 	_build_house(Vector3(0.0, 0.0, -6.0))
 	_build_truck(Vector3(-12.0, 0.0, 11.5), 12.0)
 	_build_trees()
+	_build_outdoor_loot()
 	_build_boundaries()
 	_spawn_player()
 	_spawn_zombies()
@@ -171,9 +174,13 @@ func _build_house(pos: Vector3) -> void:
 		gable.rotation_degrees = Vector3(0.0, 90.0, 0.0)
 		house.add_child(gable)
 
-	# Móveis
+	# Móveis (cada um é um recipiente com loot sorteado na primeira abertura)
 	_add_box(house, Vector3(1.6, 0.8, 0.8), Vector3(-2.5, 0.4, -2.8), Color(0.40, 0.30, 0.20))
+	_add_container(house, "Armário da cozinha", "kitchen", Vector3(-2.5, 0.8, -2.8))
 	_add_box(house, Vector3(0.8, 0.8, 0.8), Vector3(3.2, 0.4, -3.0), Color(0.45, 0.32, 0.22))
+	_add_container(house, "Cômoda do quarto", "bedroom", Vector3(3.2, 0.8, -3.0))
+	_add_box(house, Vector3(0.3, 0.9, 0.8), Vector3(4.65, 1.5, 0.8), Color(0.82, 0.82, 0.78))
+	_add_container(house, "Armário de remédios", "bathroom", Vector3(4.65, 1.95, 0.8))
 
 	# Lampião aceso
 	var lamp := OmniLight3D.new()
@@ -183,28 +190,45 @@ func _build_house(pos: Vector3) -> void:
 	lamp.position = Vector3(0.0, 2.3, 0.0)
 	house.add_child(lamp)
 
-	# Itens para pegar: feijão enlatado (cura um pouco)
-	_add_pickup(house, "Feijão enlatado", 15.0, Vector3(-2.5, 0.88, -2.8))
-	_add_pickup(house, "Feijão enlatado", 15.0, Vector3(3.2, 0.88, -3.0))
-	_add_pickup(house, "Feijão enlatado", 15.0, Vector3(1.0, 0.1, 1.5))
+	# Um item solto no chão para testar o PEGAR
+	_add_ground(house, "canned_beans", 1, Vector3(1.0, 0.07, 1.5))
 
 
-func _add_pickup(parent: Node3D, item_name: String, heal: float, pos: Vector3) -> void:
-	var item := Node3D.new()
-	item.position = pos
-	item.add_to_group("pickups")
-	item.set_meta("item_name", item_name)
-	item.set_meta("heal", heal)
-	var mi := MeshInstance3D.new()
-	var can := CylinderMesh.new()
-	can.top_radius = 0.07
-	can.bottom_radius = 0.07
-	can.height = 0.14
-	mi.mesh = can
-	mi.material_override = _mat(Color(0.75, 0.2, 0.15))
-	mi.position.y = 0.07
-	item.add_child(mi)
-	parent.add_child(item)
+func _add_container(parent: Node3D, title: String, table: String, pos: Vector3, reach: float = 2.4) -> void:
+	var c = ContainerScript.new()
+	c.title = title
+	c.loot_table = table
+	c.reach = reach
+	c.position = pos
+	parent.add_child(c)
+
+
+func _add_ground(parent: Node3D, id: String, n: int, pos: Vector3) -> void:
+	var g = GroundItemScript.new()
+	g.setup(id, n, ItemDB.max_durability_of(id))
+	parent.add_child(g)
+	g.position = pos
+
+
+## Caixa de ferramentas no quintal e itens espalhados pelo mapa (sorteio fixo, igual em toda partida).
+func _build_outdoor_loot() -> void:
+	_add_box(self, Vector3(0.9, 0.5, 0.45), Vector3(7.5, 0.25, -2.0), Color(0.70, 0.15, 0.12))
+	_add_container(self, "Caixa de ferramentas", "garage", Vector3(7.5, 0.5, -2.0))
+	_add_ground(self, "water_bottle", 1, Vector3(2.5, 0.07, 11.8))
+
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5150
+	var spots := 0
+	var tries := 0
+	while spots < 14 and tries < 400:
+		tries += 1
+		var x := rng.randf_range(-35.0, 35.0)
+		var z := rng.randf_range(-8.0, 38.0)
+		if absf(x) < 8.0 and z > -13.0 and z < 1.0:
+			continue  # dentro da casa
+		for e in ItemDB.roll_loot("roadside", rng):
+			_add_ground(self, str(e["id"]), int(e["n"]), Vector3(x, 0.07, z))
+		spots += 1
 
 
 # --- Caminhonete abandonada ---
@@ -217,6 +241,7 @@ func _build_truck(pos: Vector3, yaw_deg: float) -> void:
 	var paint := Color(0.25, 0.48, 0.46)
 	_add_box(truck, Vector3(2.0, 0.9, 4.6), Vector3(0.0, 0.85, 0.0), paint)
 	_add_box(truck, Vector3(1.9, 0.8, 1.8), Vector3(0.0, 1.7, -0.5), paint.darkened(0.1), false)
+	_add_container(truck, "Caçamba da caminhonete", "vehicle", Vector3(0.0, 1.35, 1.7), 2.8)
 	for x in [-1.0, 1.0]:
 		for z in [-1.5, 1.5]:
 			var wheel := MeshInstance3D.new()
@@ -330,6 +355,8 @@ func _spawn_hud() -> void:
 	hud.player = _player
 	_player.bind_controls(hud.controls)
 	hud.controls.pause_pressed.connect(_on_pause_pressed)
+	_player.container_opened.connect(hud.open_inventory)
+	_player.inventory_requested.connect(hud.open_inventory)
 
 
 # --- Auxiliares ---

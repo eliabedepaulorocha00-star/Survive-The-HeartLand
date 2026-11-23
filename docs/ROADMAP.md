@@ -21,8 +21,9 @@ Plano baseado em `PROMPT_MASTER.md`, adaptado de Unity (C#) para Godot 4 (GDScri
 - [ ] Criação de partida (single/co-op) com regras sandbox
 
 ## Fase 5 – Sobrevivência (prompts 19 a 22)
-- [ ] Banco de itens
-- [ ] Inventário por peso e loot procedural
+- [x] Banco de itens (90 itens: armas brancas e de fogo, munição, comida, bebida, médicos, ferramentas, materiais, tecidos)
+- [x] Inventário por peso (sobrecarga deixa lento), loot procedural por tipo de lugar, fome e sede
+  - Falta: comida estragando com o tempo, tiro das armas de fogo (Fase 6)
 - [ ] Saúde por partes do corpo e moodles
 - [ ] Crafting
 

@@ -9,6 +9,7 @@ signal crouch_pressed
 signal action_pressed
 signal attack_pressed
 signal pause_pressed
+signal bag_pressed
 
 const JOY_RADIUS := 100.0
 const JOY_DEADZONE := 0.12
@@ -29,6 +30,22 @@ var crouch_active: bool = false:
 		if value != crouch_active:
 			crouch_active = value
 			queue_redraw()
+
+## Enquanto a mochila (ou outra tela) está aberta, os toques não mexem no jogo.
+var blocked: bool = false:
+	set(value):
+		if value == blocked:
+			return
+		blocked = value
+		if blocked:
+			_move_touch = -1
+			_look_touch = -1
+			move_vector = Vector2.ZERO
+			sprinting = false
+			look_delta = Vector2.ZERO
+			for id in _buttons:
+				_buttons[id]["touch"] = -1
+		queue_redraw()
 
 var _move_touch: int = -1
 var _look_touch: int = -1
@@ -55,6 +72,7 @@ func _layout_buttons() -> void:
 		"crouch": {"center": Vector2(w - 70.0, h - 250.0), "radius": 38.0 * s, "touch": -1},
 		"camera": {"center": Vector2(w - 190.0, h - 215.0), "radius": 36.0 * s, "touch": -1},
 		"pause": {"center": Vector2(w - 50.0, 50.0), "radius": 28.0 * s, "touch": -1},
+		"bag": {"center": Vector2(w - 140.0, 52.0), "radius": 36.0 * s, "touch": -1},
 	}
 	queue_redraw()
 
@@ -67,6 +85,8 @@ func consume_look() -> Vector2:
 
 
 func _input(event: InputEvent) -> void:
+	if blocked:
+		return
 	if event is InputEventScreenTouch:
 		if event.pressed:
 			_touch_down(event.index, event.position)
@@ -138,6 +158,8 @@ func _fire_button(id: String) -> void:
 			camera_toggle_pressed.emit()
 		"pause":
 			pause_pressed.emit()
+		"bag":
+			bag_pressed.emit()
 
 
 func _label_for(id: String) -> String:
@@ -152,6 +174,8 @@ func _label_for(id: String) -> String:
 			return "CÂMERA"
 		"pause":
 			return "II"
+		"bag":
+			return "MOCHILA"
 	return ""
 
 

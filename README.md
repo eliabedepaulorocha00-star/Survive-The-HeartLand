@@ -43,3 +43,8 @@ Veja o [ROADMAP](docs/ROADMAP.md). A ideia é evoluir uma fase de cada vez, semp
 ## Observação sobre a arte
 
 As imagens em `art/reference/` são só referência de estilo. O mascote "Spiffo" que aparece em algumas delas pertence a Project Zomboid; antes de publicar o jogo, troque por uma marca própria (por exemplo, o "Last Stop Diner").
+
+## Mochila e loot (Fase 5, parte 1)
+- Botão MOCHILA (canto superior direito) abre a mochila; perto de armários/caixas o botão de ação vira ABRIR.
+- Toque num item para Usar/Equipar/Largar/Desmontar. Fome e sede caem com o tempo; peso demais deixa lento.
+- Bolinha âmbar = recipiente ainda não revistado.
