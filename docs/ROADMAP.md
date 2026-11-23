@@ -40,3 +40,8 @@ Plano baseado em `PROMPT_MASTER.md`, adaptado de Unity (C#) para Godot 4 (GDScri
 
 ## Fase 8 – Multiplayer e acabamento (prompts 29 a 35)
 - [ ] Rede, voz, save/load, áudio, eventos, otimização, anti-cheat
+
+## Extra – Personagem
+- [x] Boneco articulado com roupas do dia a dia (jogador e zumbis)
+- [x] Customização: gênero, pele, cabelo, roupas; 9 profissões; 15 traços com sistema de pontos
+- [ ] Habilidades por prática (Fase 7) usarão a profissão escolhida

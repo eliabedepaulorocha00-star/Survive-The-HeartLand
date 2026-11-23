@@ -9,6 +9,7 @@ signal inventory_requested
 const CameraRigScript = preload("res://scripts/player/camera_rig.gd")
 const InventoryScript = preload("res://scripts/player/inventory.gd")
 const BodyHealthScript = preload("res://scripts/player/body_health.gd")
+const HumanoidScript = preload("res://scripts/world/humanoid.gd")
 const GroundItemScript = preload("res://scripts/world/ground_item.gd")
 
 const WALK_SPEED := 3.2
@@ -67,6 +68,7 @@ var _capsule: CapsuleShape3D
 var _regen_timer: float = 0.0
 var _attack_cd: float = 0.0
 var randomizer := RandomNumberGenerator.new()
+var _humanoid
 var _target = null  # item no chão ou recipiente mais próximo
 var _hunger_level: int = 0
 var _thirst_level: int = 0
@@ -87,7 +89,10 @@ func _ready() -> void:
 	add_child(_shape)
 
 	inventory = InventoryScript.new()
+	inventory.capacity = inventory.BASE_CAPACITY + CharacterData.add("carry")
 	body = BodyHealthScript.new()
+	body.bleed_mult = CharacterData.mult("bleed")
+	body.wound_mult = CharacterData.mult("wound")
 	_build_visual()
 	_give_starting_items()
 	inventory.changed.connect(_update_weapon_visual)
@@ -126,8 +131,9 @@ func _unhandled_input(event: InputEvent) -> void:
 				GameManager.change_state(GameManager.State.PAUSED)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	_body.visible = rig.blend < 0.8
+	_humanoid.animate(Vector2(velocity.x, velocity.z).length(), delta)
 
 
 func _physics_process(delta: float) -> void:
@@ -159,16 +165,17 @@ func _physics_process(delta: float) -> void:
 	speed *= strength
 	if exhausted:
 		speed *= 0.6
+	speed *= CharacterData.mult("speed")
 	speed *= float(inventory.speed_factor()) * float(body.speed_factor())  # peso demais deixa lento
 
 	# Stamina e exaustão
 	if sprinting:
-		stamina -= SPRINT_COST * delta
+		stamina -= SPRINT_COST * CharacterData.mult("sprint_cost") * delta
 		_regen_timer = REGEN_DELAY
 	elif _regen_timer > 0.0:
 		_regen_timer -= delta
 	else:
-		stamina += STAMINA_REGEN * (1.0 - 0.4 * wetness) * delta  # roupa molhada cansa mais
+		stamina += STAMINA_REGEN * CharacterData.mult("stamina_regen") * (1.0 - 0.4 * wetness) * delta  # roupa molhada cansa mais
 	stamina = clampf(stamina, 0.0, max_stamina)
 	if stamina <= 0.0 and not exhausted:
 		exhausted = true
@@ -185,7 +192,7 @@ func _physics_process(delta: float) -> void:
 		noise_radius = 22.0
 	else:
 		noise_radius = 8.0
-	noise_radius *= GameManager.noise_factor  # a chuva abafa os passos
+	noise_radius *= GameManager.noise_factor * CharacterData.mult("noise")  # a chuva abafa os passos
 
 	_update_exposure(delta)
 	_update_needs(delta)
@@ -220,8 +227,8 @@ func _physics_process(delta: float) -> void:
 ## Fome e sede caem com o tempo (mais rápido correndo). Zerar uma delas machuca; bem alimentado, a vida volta devagar.
 func _update_needs(delta: float) -> void:
 	var day_s: float = float(GameSettings.day_minutes()) * 60.0
-	var hunger_rate: float = 100.0 / (day_s * HUNGER_DAYS)
-	var thirst_rate: float = 100.0 / (day_s * THIRST_DAYS)
+	var hunger_rate: float = 100.0 / (day_s * HUNGER_DAYS) * CharacterData.mult("hunger_rate")
+	var thirst_rate: float = 100.0 / (day_s * THIRST_DAYS) * CharacterData.mult("thirst_rate")
 	if sprinting:
 		hunger_rate *= 1.4
 		thirst_rate *= 1.8
@@ -249,7 +256,7 @@ func _update_needs(delta: float) -> void:
 		death_cause = "Você virou um deles..."
 		_vital_damage(9999.0)
 	if hunger > 50.0 and thirst > 50.0 and health < max_health and body.bleeding_count() == 0 and not dead:
-		health = minf(max_health, health + 0.25 * delta)
+		health = minf(max_health, health + 0.25 * CharacterData.mult("regen") * delta)
 
 
 func _need_level(value: float) -> int:
@@ -376,11 +383,20 @@ func _pickup(g) -> void:
 # --- Mochila: usar, equipar, largar e desmontar (chamados pela tela da mochila) ---
 
 func _give_starting_items() -> void:
-	inventory.add("bat", 1)
-	inventory.set_equipped(int(inventory.entries[0]["uid"]))
 	inventory.add("water_bottle", 1)
 	inventory.add("canned_beans", 1)
 	inventory.add("bandage", 2)
+	var melee_uid := 0
+	for it in CharacterData.start_items():
+		inventory.add(str(it[0]), int(it[1]))
+	for e in inventory.entries:
+		var d := ItemDB.get_item(str(e["id"]))
+		if melee_uid == 0 and bool(d.get("equip", false)) and not d.has("ammo"):
+			melee_uid = int(e["uid"])
+	if melee_uid == 0:
+		inventory.add("bat", 1)
+		melee_uid = int(inventory.entries[inventory.entries.size() - 1]["uid"])
+	inventory.set_equipped(melee_uid)
 
 
 func use_item(uid: int) -> void:
@@ -589,7 +605,7 @@ func _try_attack() -> void:
 	_swing_weapon()
 
 	var fwd := -_body.global_transform.basis.z
-	var power := float(stats["dmg"]) * (0.6 if exhausted else 1.0) * float(body.attack_factor())
+	var power := float(stats["dmg"]) * (0.6 if exhausted else 1.0) * float(body.attack_factor()) * CharacterData.mult("melee")
 	var reach := float(stats["range"])
 	var hit := false
 	for z in get_tree().get_nodes_in_group("zombies"):
@@ -689,15 +705,12 @@ func _check_death() -> void:
 func _build_visual() -> void:
 	_body = Node3D.new()
 	add_child(_body)
-	_mesh_node(_body, _capsule_mesh(0.30, 0.95), Vector3(0.0, 0.48, 0.0), Color(0.25, 0.32, 0.45))  # calça jeans
-	_mesh_node(_body, _capsule_mesh(0.34, 0.90), Vector3(0.0, 1.22, 0.0), Color(0.62, 0.12, 0.10))  # camisa xadrez
-	_mesh_node(_body, _sphere_mesh(0.20), Vector3(0.0, 1.68, 0.0), Color(0.85, 0.68, 0.55))  # cabeça
-	var hair := _mesh_node(_body, _sphere_mesh(0.205), Vector3(0.0, 1.76, 0.02), Color(0.35, 0.25, 0.15))
-	hair.scale = Vector3(1.0, 0.6, 1.0)
-	_mesh_node(_body, _box_mesh(Vector3(0.45, 0.6, 0.25)), Vector3(0.0, 1.25, 0.32), Color(0.33, 0.36, 0.22))  # mochila
+	_humanoid = HumanoidScript.new()
+	_body.add_child(_humanoid)
+	_humanoid.build(CharacterData.appearance(), true)
 
 	_weapon_pivot = Node3D.new()
-	_weapon_pivot.position = Vector3(0.38, 1.2, -0.1)
+	_weapon_pivot.position = Vector3(0.28, 0.95, -0.06)
 	_weapon_pivot.rotation_degrees.x = -15.0
 	_body.add_child(_weapon_pivot)
 	# O modelo da arma é montado por _update_weapon_visual()

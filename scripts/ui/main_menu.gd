@@ -3,6 +3,7 @@ extends Control
 ## título e botões estilo placa de metal à esquerda.
 
 const SettingsMenuScript = preload("res://scripts/ui/settings_menu.gd")
+const CharacterMenuScript = preload("res://scripts/ui/character_menu.gd")
 
 var _toast: Label
 var _toast_tween: Tween
@@ -111,7 +112,7 @@ func _build_buttons() -> void:
 
 	_add_button(box, "JOGAR", func(): GameManager.start_game())
 	_add_button(box, "MULTIPLAYER", func(): _show_toast("Multiplayer: em breve (Fase 8)"))
-	_add_button(box, "CUSTOMIZAR SOBREVIVENTE", func(): _show_toast("Customização: em breve"))
+	_add_button(box, "CUSTOMIZAR SOBREVIVENTE", func(): add_child(CharacterMenuScript.new()))
 	_add_button(box, "CONFIGURAÇÕES", func(): _open_settings())
 	_add_button(box, "SAIR", func(): get_tree().quit())
 

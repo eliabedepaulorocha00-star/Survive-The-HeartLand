@@ -17,6 +17,7 @@ config/icon="res://icon.svg"
 GameSettings="*res://scripts/autoload/game_settings.gd"
 GameManager="*res://scripts/autoload/game_manager.gd"
 ItemDB="*res://scripts/data/item_db.gd"
+CharacterData="*res://scripts/autoload/character_data.gd"
 
 [display]
 

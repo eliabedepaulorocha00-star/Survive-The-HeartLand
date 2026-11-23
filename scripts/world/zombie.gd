@@ -94,9 +94,10 @@ func _physics_process(delta: float) -> void:
 				_attack_cd = ATTACK_COOLDOWN
 				_player.zombie_hit(ATTACK_DAMAGE)
 
-	# Balanço do corpo (andar cambaleante)
+	# Balanço do corpo (andar cambaleante) e passos
 	_sway += delta * (3.0 if state == State.CHASE else 1.6)
 	_model.rotation.z = sin(_sway) * 0.06
+	_model.animate(Vector2(velocity.x, velocity.z).length(), delta)
 
 
 func _perceive(dist: float, to_player: Vector3) -> void:
@@ -181,46 +182,26 @@ func _die() -> void:
 	tw.tween_callback(queue_free)
 
 
-# --- Visual provisório (inspirado nas variantes da arte de referência) ---
+# --- Visual: boneco articulado com roupas comuns, pele pálida e sangue ---
+
+const HumanoidScript = preload("res://scripts/world/humanoid.gd")
 
 func _build_visual() -> void:
-	_model = Node3D.new()
+	var cloth := [Color(0.12, 0.15, 0.30), Color(0.45, 0.72, 0.62), Color(0.30, 0.36, 0.45), Color(0.40, 0.40, 0.42),
+		Color(0.55, 0.22, 0.18), Color(0.75, 0.72, 0.65), Color(0.20, 0.30, 0.22), Color(0.30, 0.22, 0.15)]
+	var hairs := [Color(0.1, 0.08, 0.07), Color(0.3, 0.2, 0.12), Color(0.6, 0.5, 0.3), Color(0.5, 0.5, 0.5)]
+	var look := {
+		"female": randf() < 0.5,
+		"skin_color": Color(0.55, 0.65, 0.58).lerp(Color(0.8, 0.7, 0.6), randf() * 0.35),
+		"hair_style": randi() % 6,
+		"hair_color": hairs[randi() % hairs.size()],
+		"top_style": randi() % 3,
+		"top_color": cloth[randi() % cloth.size()],
+		"bottom_style": 0 if randf() < 0.8 else 1,
+		"bottom_color": cloth[randi() % cloth.size()].darkened(0.2),
+		"shoe_color": Color(0.12, 0.1, 0.09),
+	}
+	_model = HumanoidScript.new()
+	_model.zombie = true
 	add_child(_model)
-	var skin := Color(0.55, 0.65, 0.68)
-	var outfit: Color = OUTFITS[randi() % OUTFITS.size()]
-	_part(_capsule_mesh(0.30, 0.95), Vector3(0.0, 0.48, 0.0), outfit.darkened(0.35))  # calça
-	_part(_capsule_mesh(0.34, 0.90), Vector3(0.0, 1.22, 0.0), outfit)  # camisa
-	_part(_sphere_mesh(0.20), Vector3(0.0, 1.68, 0.0), skin)  # cabeça
-	_part(_box_mesh(Vector3(0.12, 0.12, 0.65)), Vector3(-0.30, 1.40, -0.35), skin)  # braço esq.
-	_part(_box_mesh(Vector3(0.12, 0.12, 0.65)), Vector3(0.30, 1.40, -0.35), skin)  # braço dir.
-
-
-func _part(mesh: Mesh, pos: Vector3, color: Color) -> void:
-	var mi := MeshInstance3D.new()
-	mi.mesh = mesh
-	var m := StandardMaterial3D.new()
-	m.albedo_color = color
-	m.roughness = 0.95
-	mi.material_override = m
-	mi.position = pos
-	_model.add_child(mi)
-
-
-func _capsule_mesh(radius: float, height: float) -> CapsuleMesh:
-	var c := CapsuleMesh.new()
-	c.radius = radius
-	c.height = height
-	return c
-
-
-func _sphere_mesh(radius: float) -> SphereMesh:
-	var s := SphereMesh.new()
-	s.radius = radius
-	s.height = radius * 2.0
-	return s
-
-
-func _box_mesh(size: Vector3) -> BoxMesh:
-	var b := BoxMesh.new()
-	b.size = size
-	return b
+	_model.build(look)

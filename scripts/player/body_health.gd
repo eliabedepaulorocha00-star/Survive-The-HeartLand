@@ -18,6 +18,8 @@ var splint_timer := {"arms": 0.0, "legs": 0.0}
 var infection: float = 0.0  # 0..1
 var bite_timer: float = -1.0  # < 0 = sem mordida; chega a 0 = zumbificação
 var painkiller_time: float = 0.0
+var bleed_mult: float = 1.0  # traços (hemofílico...)
+var wound_mult: float = 1.0  # pele grossa/fina: chance de laceração e mordida
 
 
 ## Sorteia um ferimento causado por um golpe de zumbi. Devolve o texto para o aviso.
@@ -25,9 +27,9 @@ func hit(rng: RandomNumberGenerator) -> String:
 	var zone: String = ZONES[rng.randi() % ZONES.size()]
 	var roll := rng.randf()
 	var kind := "scratch"
-	if roll < BITE_CHANCE:
+	if roll < BITE_CHANCE * wound_mult:
 		kind = "bite"
-	elif roll < BITE_CHANCE + LACERATION_CHANCE:
+	elif roll < (BITE_CHANCE + LACERATION_CHANCE) * wound_mult:
 		kind = "laceration"
 	wounds.append({"zone": zone, "kind": kind, "bleeding": true, "dirty": true, "age": 0.0})
 	var msg := "%s na %s" % [KIND_NAMES[kind], ZONE_NAMES[zone]]
@@ -49,7 +51,7 @@ func update(delta: float, day_s: float) -> Dictionary:
 		w["age"] = float(w["age"]) + delta
 		var kind: String = w["kind"]
 		if bool(w["bleeding"]):
-			damage += float(BLEED_RATE[kind]) * delta
+			damage += float(BLEED_RATE[kind]) * bleed_mult * delta
 			if BLEED_STOPS_ALONE.has(kind) and float(w["age"]) > float(BLEED_STOPS_ALONE[kind]):
 				w["bleeding"] = false
 		if bool(w["dirty"]):
