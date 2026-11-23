@@ -8,6 +8,7 @@ signal inventory_requested
 
 const CameraRigScript = preload("res://scripts/player/camera_rig.gd")
 const InventoryScript = preload("res://scripts/player/inventory.gd")
+const BodyHealthScript = preload("res://scripts/player/body_health.gd")
 const GroundItemScript = preload("res://scripts/world/ground_item.gd")
 
 const WALK_SPEED := 3.2
@@ -51,6 +52,8 @@ var noise_radius: float = 2.0  # raio em que os zumbis "ouvem" o jogador
 var hint_text: String = ""
 var hunger: float = 100.0  # 100 = saciado, 0 = faminto
 var thirst: float = 100.0
+var body  # BodyHealth (scripts/player/body_health.gd)
+var death_cause: String = ""
 var inventory  # Inventory (scripts/player/inventory.gd)
 var ui_locked: bool = false  # true enquanto a mochila está aberta
 var wetness: float = 0.0  # 0 = seco, 1 = encharcado (a chuva molha, o abrigo seca)
@@ -63,6 +66,7 @@ var _shape: CollisionShape3D
 var _capsule: CapsuleShape3D
 var _regen_timer: float = 0.0
 var _attack_cd: float = 0.0
+var randomizer := RandomNumberGenerator.new()
 var _target = null  # item no chão ou recipiente mais próximo
 var _hunger_level: int = 0
 var _thirst_level: int = 0
@@ -83,6 +87,7 @@ func _ready() -> void:
 	add_child(_shape)
 
 	inventory = InventoryScript.new()
+	body = BodyHealthScript.new()
 	_build_visual()
 	_give_starting_items()
 	inventory.changed.connect(_update_weapon_visual)
@@ -144,7 +149,7 @@ func _physics_process(delta: float) -> void:
 	var wants_sprint: bool = Input.is_key_pressed(KEY_SHIFT)
 	if controls != null and controls.sprinting:
 		wants_sprint = true
-	sprinting = wants_sprint and moving and not crouching and not exhausted and stamina > 0.0
+	sprinting = wants_sprint and moving and not crouching and not exhausted and stamina > 0.0 and body.can_sprint()
 
 	var speed := WALK_SPEED
 	if crouching:
@@ -154,7 +159,7 @@ func _physics_process(delta: float) -> void:
 	speed *= strength
 	if exhausted:
 		speed *= 0.6
-	speed *= float(inventory.speed_factor())  # peso demais deixa lento
+	speed *= float(inventory.speed_factor()) * float(body.speed_factor())  # peso demais deixa lento
 
 	# Stamina e exaustão
 	if sprinting:
@@ -236,7 +241,14 @@ func _update_needs(delta: float) -> void:
 		_vital_damage(0.15 * delta)
 	if thirst <= 0.0:
 		_vital_damage(0.35 * delta)
-	if hunger > 50.0 and thirst > 50.0 and health < max_health and not dead:
+	var res: Dictionary = body.update(delta, day_s)
+	if float(res["damage"]) > 0.0:
+		death_cause = "Você sangrou até a morte." if body.bleeding_count() > 0 else "A infecção venceu."
+		_vital_damage(float(res["damage"]))
+	if bool(res["zombified"]):
+		death_cause = "Você virou um deles..."
+		_vital_damage(9999.0)
+	if hunger > 50.0 and thirst > 50.0 and health < max_health and body.bleeding_count() == 0 and not dead:
 		health = minf(max_health, health + 0.25 * delta)
 
 
@@ -387,11 +399,13 @@ func use_item(uid: int) -> void:
 	var water := float(data.get("water", 0.0))
 	var heal := float(data.get("heal", 0.0))
 	var harm := float(data.get("harm", 0.0))
-	if food == 0.0 and water == 0.0 and heal == 0.0:
-		if bool(data.get("later", false)):
-			GameManager.notify("%s: ainda sem efeito (chega com a saúde por partes do corpo)." % nm)
-		else:
-			GameManager.notify("%s não se usa assim. Serve para crafting ou desmontar." % nm)
+	var treated := _treat(data)
+	var is_treatment: bool = data.has("stop_bleed") or data.has("disinfect") or data.has("painkill") or data.has("antibiotic") or data.has("splint") or data.has("suture")
+	if is_treatment and not treated and food == 0.0 and water == 0.0 and heal == 0.0:
+		GameManager.notify("%s: não precisa agora." % nm)
+		return
+	if food == 0.0 and water == 0.0 and heal == 0.0 and not treated:
+		GameManager.notify("%s não se usa assim. Serve para crafting ou desmontar." % nm)
 		return
 	if food > 0.0 and water == 0.0 and heal == 0.0 and hunger >= 99.0:
 		GameManager.notify("Você não está com fome agora.")
@@ -399,7 +413,7 @@ func use_item(uid: int) -> void:
 	if water > 0.0 and food == 0.0 and heal == 0.0 and thirst >= 99.0:
 		GameManager.notify("Você não está com sede agora.")
 		return
-	if heal > 0.0 and food == 0.0 and water == 0.0 and health >= max_health - 0.5:
+	if heal > 0.0 and food == 0.0 and water == 0.0 and health >= max_health - 0.5 and not treated:
 		GameManager.notify("Você não está ferido.")
 		return
 
@@ -419,6 +433,57 @@ func use_item(uid: int) -> void:
 	if harm > 0.0:
 		_vital_damage(harm)
 		GameManager.notify("%s fez mal! (-%d de vida)" % [nm, int(harm)])
+
+
+## Aplica o efeito médico do item no corpo. true se serviu para algo.
+func _treat(data: Dictionary) -> bool:
+	var day_s: float = float(GameSettings.day_minutes()) * 60.0
+	var used := false
+	if data.has("stop_bleed") and body.stop_bleeding(str(data["stop_bleed"])):
+		used = true
+	if data.has("suture") and body.suture():
+		used = true
+	if data.has("disinfect") and body.disinfect():
+		used = true
+	if data.has("antibiotic") and body.antibiotic():
+		used = true
+	if data.has("painkill") and body.painkill(day_s * 0.15):
+		used = true
+	if data.has("splint") and body.splint(day_s):
+		used = true
+	return used
+
+
+func can_craft(r: Dictionary) -> bool:
+	for i in r["inputs"]:
+		if int(inventory.count(str(i[0]))) < int(i[1]):
+			return false
+	for t in r["tools"]:
+		var ok := false
+		for alt in str(t).split("|"):
+			if inventory.has_item(alt):
+				ok = true
+		if not ok:
+			return false
+	return true
+
+
+func craft(recipe_id: String) -> void:
+	if dead:
+		return
+	for r in ItemDB.RECIPES:
+		if r["id"] != recipe_id:
+			continue
+		if not can_craft(r):
+			GameManager.notify("Faltam ingredientes ou ferramentas.")
+			return
+		for i in r["inputs"]:
+			for k in int(i[1]):
+				inventory.consume_one(str(i[0]))
+		for o in r["outputs"]:
+			_give_or_drop(str(o[0]), int(o[1]))
+		GameManager.notify("Criou: %s" % ItemDB.recipe_title(r))
+		return
 
 
 func equip_item(uid: int) -> void:
@@ -524,7 +589,7 @@ func _try_attack() -> void:
 	_swing_weapon()
 
 	var fwd := -_body.global_transform.basis.z
-	var power := float(stats["dmg"]) * (0.6 if exhausted else 1.0)
+	var power := float(stats["dmg"]) * (0.6 if exhausted else 1.0) * float(body.attack_factor())
 	var reach := float(stats["range"])
 	var hit := false
 	for z in get_tree().get_nodes_in_group("zombies"):
@@ -592,6 +657,15 @@ func take_damage(amount: float) -> void:
 	if GameSettings.vibration:
 		Input.vibrate_handheld(60)
 	_check_death()
+
+
+## Golpe de zumbi: dano direto e um ferimento por partes do corpo.
+func zombie_hit(amount: float) -> void:
+	if dead:
+		return
+	death_cause = "Os zumbis pegaram você."
+	take_damage(amount)
+	GameManager.notify(body.hit(randomizer))
 
 
 ## Dano que não vem de golpe (fome, sede, água suja): sem tremor de câmera.

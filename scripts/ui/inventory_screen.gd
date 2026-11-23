@@ -14,6 +14,7 @@ var _weight_label: Label
 var _weight_bar: ProgressBar
 var _status: Label
 var _sel_source: String = ""  # "bag", "box" ou ""
+var _craft_mode: bool = false
 var _sel_key: int = -1  # uid na mochila, posição no recipiente
 
 
@@ -79,6 +80,10 @@ func _build() -> void:
 	_weight_bar.custom_minimum_size = Vector2(0.0, 12.0)
 	_weight_bar.add_theme_stylebox_override("background", _box_style(Color(0.0, 0.0, 0.0, 0.55), 2))
 	weight_box.add_child(_weight_bar)
+
+	var craft_btn := _make_button("CRAFTING", Vector2(170.0, 50.0), 20)
+	craft_btn.pressed.connect(_toggle_craft)
+	top.add_child(craft_btn)
 
 	var close_btn := _make_button("FECHAR", Vector2(170.0, 50.0), 20)
 	close_btn.pressed.connect(close)
@@ -289,13 +294,35 @@ func _add_row(list: Control, id: String, text: String, right_text: String, selec
 
 
 func _select(source: String, key: int) -> void:
+	_craft_mode = false
 	_sel_source = source
 	_sel_key = key
 	_refresh()
 
 
+func _toggle_craft() -> void:
+	_craft_mode = not _craft_mode
+	_refresh()
+
+
+func _refresh_craft() -> void:
+	_add_wrapped(_detail, "CRAFTING", 24, Color(0.85, 0.78, 0.55))
+	for r in ItemDB.RECIPES:
+		var can: bool = player.can_craft(r)
+		var b := _make_button(ItemDB.recipe_title(r), Vector2(0.0, 48.0), 19)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.disabled = not can
+		var rid: String = r["id"]
+		b.pressed.connect(func(): player.craft(rid))
+		_detail.add_child(b)
+		_add_wrapped(_detail, ItemDB.recipe_needs(r), 14, Color(0.7, 0.72, 0.7) if not can else Color(0.6, 0.85, 0.5))
+
+
 func _refresh_detail() -> void:
 	_clear(_detail)
+	if _craft_mode:
+		_refresh_craft()
+		return
 	if _sel_source == "":
 		var hint := "Toque num item para ver os detalhes e as opções."
 		if container != null:
@@ -331,7 +358,7 @@ func _refresh_detail() -> void:
 		if ItemDB.is_weapon(id):
 			var equipped: bool = player.inventory.equipped_uid == uid
 			_add_action(_detail, "DESEQUIPAR" if equipped else "EQUIPAR", func(): player.equip_item(uid))
-		elif data.has("food") or data.has("water") or data.has("heal"):
+		elif data.has("food") or data.has("water") or data.has("heal") or data.has("stop_bleed") or data.has("disinfect") or data.has("painkill") or data.has("antibiotic") or data.has("splint") or data.has("suture"):
 			var verb := "USAR"
 			if data["cat"] == "food":
 				verb = "COMER"

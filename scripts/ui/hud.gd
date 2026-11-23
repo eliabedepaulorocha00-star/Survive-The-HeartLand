@@ -16,6 +16,8 @@ var _hunger_fill: ColorRect
 var _thirst_fill: ColorRect
 var _weapon_label: Label
 var _inv_screen
+var _moodle_box: HBoxContainer
+var _moodle_key: String = ""
 var _fps_label: Label
 var _kills_label: Label
 var _wet_label: Label
@@ -44,6 +46,11 @@ func _ready() -> void:
 	_kills_label = _make_label(Vector2(24.0, 130.0), 18, Color(0.9, 0.9, 0.85))
 	_wet_label = _make_label(Vector2(24.0, 156.0), 16, Color(0.6, 0.8, 1.0))
 	_weapon_label = _make_label(Vector2(24.0, 180.0), 16, Color(0.92, 0.90, 0.80))
+	_moodle_box = HBoxContainer.new()
+	_moodle_box.position = Vector2(24.0, 208.0)
+	_moodle_box.add_theme_constant_override("separation", 6)
+	_moodle_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_moodle_box)
 	_clock_label = _make_label(Vector2(0.0, 16.0), 20, Color(0.92, 0.90, 0.80))
 	_clock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hint_label = _make_label(Vector2(0.0, 0.0), 22, Color(1.0, 0.9, 0.6))
@@ -98,6 +105,58 @@ func _process(_delta: float) -> void:
 	_thirst_fill.color = Color(0.85, 0.20, 0.15) if player.thirst < 12.0 else Color(0.28, 0.58, 0.92)
 	_weapon_label.text = "%s  |  Mochila %.1f/%.0f kg" % [player.weapon_name(), player.inventory.total_weight(), player.inventory.capacity]
 	_hint_label.text = player.hint_text
+	_update_moodles()
+
+
+## Moodles: avisos de estado (fome, dor, sangramento...). Gravidade 1 = amarelo, 2 = vermelho.
+func _update_moodles() -> void:
+	var list: Array = []
+	if player.hunger < 12.0:
+		list.append(["Faminto", 2])
+	elif player.hunger < 30.0:
+		list.append(["Fome", 1])
+	if player.thirst < 12.0:
+		list.append(["Sedento", 2])
+	elif player.thirst < 30.0:
+		list.append(["Sede", 1])
+	if player.exhausted:
+		list.append(["Exausto", 2])
+	elif player.stamina < 25.0:
+		list.append(["Cansado", 1])
+	var b = player.body
+	if b.has_bite():
+		list.append(["Mordido", 2])
+	if b.bleeding_count() > 0:
+		list.append(["Sangrando x%d" % b.bleeding_count(), 2])
+	if b.infection > 0.5:
+		list.append(["Infecção", 2])
+	elif b.infection > 0.05:
+		list.append(["Infecção leve", 1])
+	if int(b.fractures["legs"]) != 0 or int(b.fractures["arms"]) != 0:
+		list.append(["Fratura", 2 if (int(b.fractures["legs"]) == 1 or int(b.fractures["arms"]) == 1) else 1])
+	if b.pain() > 0.5:
+		list.append(["Dor forte", 2])
+	elif b.pain() > 0.05:
+		list.append(["Dor", 1])
+	if player.wetness > 0.5:
+		list.append(["Molhado", 1])
+	var key := str(list)
+	if key == _moodle_key:
+		return
+	_moodle_key = key
+	for c in _moodle_box.get_children():
+		_moodle_box.remove_child(c)
+		c.queue_free()
+	for m in list:
+		var l := Label.new()
+		l.text = " %s " % m[0]
+		l.add_theme_font_size_override("font_size", 14)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.65, 0.12, 0.10, 0.85) if int(m[1]) == 2 else Color(0.70, 0.55, 0.12, 0.85)
+		sb.set_corner_radius_all(3)
+		l.add_theme_stylebox_override("normal", sb)
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_moodle_box.add_child(l)
 
 
 func _reposition() -> void:
@@ -188,7 +247,7 @@ func _on_state_changed(_old_state: int, new_state: int) -> void:
 	_pause_panel.visible = (new_state == GameManager.State.PAUSED)
 	_dead_panel.visible = (new_state == GameManager.State.PLAYER_DEAD)
 	if new_state == GameManager.State.PLAYER_DEAD:
-		_dead_info.text = "Zumbis abatidos: %d" % GameManager.kills
+		_dead_info.text = "%s\nZumbis abatidos: %d" % [player.death_cause, GameManager.kills]
 
 
 func _open_settings() -> void:

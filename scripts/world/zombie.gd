@@ -10,7 +10,7 @@ const SIGHT_RANGE := 18.0
 const SIGHT_HALF_ANGLE := 55.0
 const FORGET_RANGE := 34.0
 const ATTACK_RANGE := 1.4
-const ATTACK_DAMAGE := 10.0
+const ATTACK_DAMAGE := 7.0
 const ATTACK_COOLDOWN := 1.2
 const GRAVITY := 22.0
 
@@ -92,7 +92,7 @@ func _physics_process(delta: float) -> void:
 				_move(Vector3.ZERO, delta)
 			if dist <= ATTACK_RANGE and _attack_cd <= 0.0 and not _player.dead:
 				_attack_cd = ATTACK_COOLDOWN
-				_player.take_damage(ATTACK_DAMAGE)
+				_player.zombie_hit(ATTACK_DAMAGE)
 
 	# Balanço do corpo (andar cambaleante)
 	_sway += delta * (3.0 if state == State.CHASE else 1.6)

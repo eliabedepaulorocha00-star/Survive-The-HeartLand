@@ -155,6 +155,18 @@ const LOOT := {
 	},
 }
 
+## Receitas: inputs são consumidos; tools ficam (use "a|b" para "um ou outro").
+const RECIPES := [
+	{"id": "bandage", "inputs": [["rag", 2]], "tools": [], "outputs": [["bandage", 1]]},
+	{"id": "splint", "inputs": [["plank", 1], ["rag", 2]], "tools": [], "outputs": [["splint", 1]]},
+	{"id": "nail_plank", "inputs": [["plank", 1], ["nails", 1]], "tools": ["hammer"], "outputs": [["nail_plank", 1]]},
+	{"id": "boil_water", "inputs": [["dirty_water", 1]], "tools": ["pot", "lighter|matches"], "outputs": [["water_bottle", 1]]},
+	{"id": "cook_potato", "inputs": [["potato", 1]], "tools": ["pot", "lighter|matches"], "outputs": [["cooked_potato", 1]]},
+	{"id": "cook_egg", "inputs": [["egg", 1]], "tools": ["pot", "lighter|matches"], "outputs": [["boiled_egg", 1]]},
+	{"id": "cook_corn", "inputs": [["corn_cob", 1]], "tools": ["pot", "lighter|matches"], "outputs": [["cooked_corn", 1]]},
+	{"id": "cook_pasta", "inputs": [["pasta", 1], ["water_bottle", 1]], "tools": ["pot", "lighter|matches"], "outputs": [["cooked_pasta", 1], ["bottle_empty", 1]]},
+]
+
 var items: Dictionary = {}
 
 
@@ -162,6 +174,7 @@ func _init() -> void:
 	_build_melee()
 	_build_firearms()
 	_build_food()
+	_build_cooked()
 	_build_drinks()
 	_build_medical()
 	_build_tools()
@@ -257,8 +270,33 @@ func describe(id: String) -> String:
 			line += " (precisa de %s)" % name_of(str(d["needs"]))
 		lines.append(line)
 	if bool(d.get("later", false)):
-		lines.append("Ainda sem efeito: chega com a saúde por partes do corpo.")
+		lines.append("Ainda sem efeito.")
 	return "\n".join(PackedStringArray(lines))
+
+
+# --- Receitas ---
+
+func recipe_title(r: Dictionary) -> String:
+	var parts: Array[String] = []
+	for o in r["outputs"]:
+		parts.append("%dx %s" % [int(o[1]), name_of(str(o[0]))])
+	return ", ".join(PackedStringArray(parts))
+
+
+func recipe_needs(r: Dictionary) -> String:
+	var parts: Array[String] = []
+	for i in r["inputs"]:
+		parts.append("%dx %s" % [int(i[1]), name_of(str(i[0]))])
+	var line := ", ".join(PackedStringArray(parts))
+	var tl: Array[String] = []
+	for t in r["tools"]:
+		var names: Array[String] = []
+		for alt in str(t).split("|"):
+			names.append(name_of(alt))
+		tl.append(" ou ".join(PackedStringArray(names)))
+	if not tl.is_empty():
+		line += "  | precisa de: " + ", ".join(PackedStringArray(tl))
+	return line
 
 
 # --- Loot ---
@@ -385,6 +423,13 @@ func _build_food() -> void:
 	_food("egg", "Ovo", 0.06, 5.0, {"desc": "Cru. Melhor cozinhar (crafting, parte 2)."})
 
 
+func _build_cooked() -> void:
+	_food("cooked_potato", "Batata cozida", 0.20, 22.0)
+	_food("boiled_egg", "Ovo cozido", 0.06, 14.0)
+	_food("cooked_corn", "Milho cozido", 0.25, 20.0)
+	_food("cooked_pasta", "Macarrão cozido", 0.50, 38.0)
+
+
 func _build_drinks() -> void:
 	_add("water_bottle", "Garrafa de água", "drink", 0.5, {"water": 40.0, "returns": "bottle_empty", "desc": "Água limpa."})
 	_add("soda", "Refrigerante", "drink", 0.35, {"water": 15.0, "food": 5.0, "returns": "can_empty"})
@@ -396,15 +441,15 @@ func _build_drinks() -> void:
 
 
 func _build_medical() -> void:
-	_add("bandage", "Bandagem", "medical", 0.05, {"heal": 12.0, "desc": "Vai estancar sangramentos quando a saúde por partes do corpo chegar."})
-	_add("adhesive", "Curativo", "medical", 0.02, {"heal": 5.0, "desc": "Para arranhões."})
+	_add("bandage", "Bandagem", "medical", 0.05, {"stop_bleed": "any", "desc": "Estanca um sangramento (o pior primeiro)."})
+	_add("adhesive", "Curativo", "medical", 0.02, {"stop_bleed": "scratch", "desc": "Só dá conta de arranhões."})
 	_add("vitamins", "Vitaminas", "medical", 0.05, {"heal": 3.0, "food": 2.0})
-	_add("first_aid_kit", "Kit de primeiros socorros", "medical", 0.8, {"heal": 35.0, "desc": "Cuida do essencial."})
-	_add("antiseptic", "Antisséptico", "medical", 0.15, {"later": true, "desc": "Evita infecção em ferimentos."})
-	_add("painkillers", "Analgésico", "medical", 0.05, {"later": true, "desc": "Alivia a dor."})
-	_add("antibiotics", "Antibiótico", "medical", 0.05, {"later": true, "desc": "Trata infecções."})
-	_add("splint", "Tala", "medical", 0.4, {"later": true, "desc": "Imobiliza fraturas."})
-	_add("suture_kit", "Kit de sutura", "medical", 0.15, {"later": true, "desc": "Fecha lacerações profundas."})
+	_add("first_aid_kit", "Kit de primeiros socorros", "medical", 0.8, {"heal": 35.0, "stop_bleed": "any", "disinfect": true, "desc": "Cura, estanca um sangramento e desinfeta."})
+	_add("antiseptic", "Antisséptico", "medical", 0.15, {"disinfect": true, "desc": "Desinfeta os ferimentos e evita infecção."})
+	_add("painkillers", "Analgésico", "medical", 0.05, {"painkill": true, "desc": "Alivia a dor por um tempo."})
+	_add("antibiotics", "Antibiótico", "medical", 0.05, {"antibiotic": true, "desc": "Reduz a infecção. Não cura mordida de zumbi."})
+	_add("splint", "Tala", "medical", 0.4, {"splint": true, "desc": "Imobiliza uma fratura; depois de um tempo ela cura."})
+	_add("suture_kit", "Kit de sutura", "medical", 0.15, {"suture": true, "desc": "Fecha uma laceração que sangra."})
 
 
 func _build_tools() -> void:

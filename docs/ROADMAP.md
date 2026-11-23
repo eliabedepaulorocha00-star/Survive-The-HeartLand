@@ -24,8 +24,8 @@ Plano baseado em `PROMPT_MASTER.md`, adaptado de Unity (C#) para Godot 4 (GDScri
 - [x] Banco de itens (90 itens: armas brancas e de fogo, munição, comida, bebida, médicos, ferramentas, materiais, tecidos)
 - [x] Inventário por peso (sobrecarga deixa lento), loot procedural por tipo de lugar, fome e sede
   - Falta: comida estragando com o tempo, tiro das armas de fogo (Fase 6)
-- [ ] Saúde por partes do corpo e moodles
-- [ ] Crafting
+- [x] Saúde por partes do corpo (arranhão, laceração, mordida, fratura, infecção, dor) e moodles
+- [x] Crafting (bandagem, tala, cozinhar, ferver água); sem fogueira/estações ainda
 
 ## Fase 6 – Zumbis e combate (prompts 23 a 25)
 - [x] Zumbi simples (andar e perseguir) para testar
