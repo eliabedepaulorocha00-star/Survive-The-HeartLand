@@ -437,6 +437,7 @@ func _put(uid: int, n: int) -> void:
 	var e: Dictionary = player.inventory.find_uid(uid)
 	if e.is_empty():
 		return
+	player.unload_gun(uid)
 	var nm := ItemDB.name_of(str(e["id"]))
 	var moved: int = container.put_from(player.inventory, uid, n)
 	if moved > 0:

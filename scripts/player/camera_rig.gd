@@ -85,6 +85,12 @@ func is_first_person() -> bool:
 
 
 ## Tremor de câmera (tiros, explosões, sustos). amount de 0 a 1.
+## Coice da arma: levanta a mira `deg` graus.
+func kick(deg: float) -> void:
+	pitch = clampf(pitch + deg_to_rad(deg), deg_to_rad(MIN_PITCH), deg_to_rad(MAX_PITCH))
+	_apply_rotation()
+
+
 func shake(amount: float = 0.3) -> void:
 	_trauma = clampf(_trauma + amount, 0.0, 1.0)
 

@@ -97,6 +97,8 @@ func build(a: Dictionary, backpack: bool = false) -> void:
 		_box(elbow, Vector3(0.10, 0.27, 0.10), Vector3(0.0, -0.13, 0.0), top if long_sleeves else skin)
 		_box(elbow, Vector3(0.09, 0.09, 0.10), Vector3(0.0, -0.30, 0.0), skin)  # mão
 		_arms.append({"shoulder": shoulder, "elbow": elbow})
+		if side > 0.0:
+			hand = elbow
 
 	if zombie:
 		_make_zombie()
@@ -137,27 +139,135 @@ func _make_zombie() -> void:
 
 
 # --- Animação ---
+# pose: "stand", "crouch", "crawl" (rastejando), "down" (caído de costas)
+# armed: "none", "melee" (arma branca na mão) ou "gun" (mira com as duas mãos)
+
+var pose: String = "stand"
+var armed: String = "none"
+var sprinting: bool = false
+var hand: Node3D  # cotovelo direito: a arma é filha deste nó
+var _crouch: float = 0.0
+var _prone: float = 0.0
+var _down: float = 0.0
+var _attack_kind: String = ""
+var _attack_t: float = 0.0
+var _attack_dur: float = 0.4
+var _flinch: float = 0.0
+var _lean: float = 0.0
+
+
+## Toca uma animação de ataque: "swing" (golpe), "stomp" (pisão), "shoot" (disparo) ou "lunge" (bote do zumbi).
+func play_attack(kind: String, dur: float) -> void:
+	_attack_kind = kind
+	_attack_dur = maxf(dur, 0.05)
+	_attack_t = 0.0
+
+
+## Reação a um golpe recebido.
+func flinch() -> void:
+	_flinch = 1.0
+
+
+func is_attacking() -> bool:
+	return _attack_kind != ""
+
 
 ## `speed`: velocidade horizontal em m/s.
 func animate(speed: float, delta: float) -> void:
+	var k := clampf(10.0 * delta, 0.0, 1.0)
 	var target := clampf(speed / 3.0, 0.0, 1.5)
 	_amount = lerpf(_amount, target, clampf(8.0 * delta, 0.0, 1.0))
 	_phase += delta * (4.0 + speed * 1.8)
-	var s := sin(_phase) * _amount
+	_crouch = lerpf(_crouch, 1.0 if pose == "crouch" else 0.0, k)
+	_prone = lerpf(_prone, 1.0 if pose == "crawl" else 0.0, k)
+	_down = lerpf(_down, 1.0 if pose == "down" else 0.0, k)
+	_lean = lerpf(_lean, 0.16 if sprinting else 0.0, k)
+	_flinch = maxf(0.0, _flinch - 3.0 * delta)
+	var at := 0.0
+	if _attack_kind != "":
+		_attack_t += delta / _attack_dur
+		at = clampf(_attack_t, 0.0, 1.0)
+		if _attack_t >= 1.0:
+			_attack_kind = ""
+			at = 0.0
+
+	var up := 1.0 - maxf(_prone, _down)  # 1 = em pé/agachado
+	var s := sin(_phase) * _amount * up
+	var breathe := sin(_phase * 0.25 + _seed) * 0.02
+
+	# Pernas
 	for i in 2:
 		var sg := 1.0 if i == 0 else -1.0
 		var leg: Dictionary = _legs[i]
-		leg["hip"].rotation.x = s * 0.75 * sg
-		leg["knee"].rotation.x = -maxf(0.0, -s * sg) * 0.9 * _amount
+		var hip_x: float = s * 0.75 * sg * (1.0 - 0.5 * _crouch) + 0.9 * _crouch
+		var knee_x: float = -maxf(0.0, -s * sg) * 0.9 * _amount - 1.8 * _crouch
+		if _prone > 0.01:  # rastejando: pernas arrastam
+			hip_x = lerpf(hip_x, 0.15 * sin(_phase * 0.8 + float(i) * PI), _prone)
+			knee_x = lerpf(knee_x, -0.1, _prone)
+		if _down > 0.01:
+			hip_x = lerpf(hip_x, 0.4 + 0.3 * float(i), _down)
+			knee_x = lerpf(knee_x, -0.9, _down)
+		if _attack_kind == "stomp" and i == 1:  # pisão com a perna direita
+			var lift := sin(at * PI)
+			hip_x = lerpf(hip_x, 1.3, lift)
+			knee_x = lerpf(knee_x, -0.6, lift)
+		leg["hip"].rotation.x = hip_x
+		leg["knee"].rotation.x = knee_x
+
+	# Braços
+	for i in 2:
+		var sg := 1.0 if i == 0 else -1.0
 		var arm: Dictionary = _arms[i]
+		var sh: float = -s * 0.6 * sg
+		var el: float = 0.15 + 0.5 * maxf(0.0, s * sg) * _amount
+		var sz := 0.0
 		if zombie:
-			arm["shoulder"].rotation.x = 1.35 + sin(_phase * 0.5 + _seed + i) * 0.08
-			arm["elbow"].rotation.x = 0.15
-		else:
-			arm["shoulder"].rotation.x = -s * 0.6 * sg
-			arm["elbow"].rotation.x = 0.15 + 0.5 * maxf(0.0, s * sg) * _amount
-	if zombie:
-		_head.rotation.x = 0.15
+			sh = 1.35 + sin(_phase * 0.5 + _seed + float(i)) * 0.08
+			el = 0.15
+			if _attack_kind == "lunge":
+				sh = lerpf(1.35, 2.2, sin(at * PI))
+		elif armed == "gun":
+			sh = 1.38 + breathe
+			el = 0.12 if i == 1 else 0.7
+			sz = 0.0 if i == 1 else -0.25
+			if _attack_kind == "shoot":
+				sh += 0.28 * (1.0 - at)
+		elif armed == "melee" and i == 1:
+			sh = 0.55 + s * -0.2
+			el = 1.0
+			if _attack_kind == "swing":
+				# levanta a arma atrás da cabeça (0 a 0.4) e desce com força (0.4 a 1)
+				if at < 0.4:
+					var w := at / 0.4
+					sh = lerpf(0.55, 2.9, w)
+					el = lerpf(1.0, 0.5, w)
+				else:
+					var w2 := (at - 0.4) / 0.6
+					sh = lerpf(2.9, 0.3, minf(1.0, w2 * 1.6))
+					el = lerpf(0.5, 0.25, minf(1.0, w2 * 1.6))
+		elif armed == "none" and i == 1 and _attack_kind == "swing":
+			sh = lerpf(0.2, 1.6, sin(at * PI))  # soco
+			el = 0.3
+		if _prone > 0.01:  # engatinhando: braços puxam à frente
+			sh = lerpf(sh, 2.6 + 0.5 * sin(_phase * 0.8 + float(i) * PI), _prone)
+			el = lerpf(el, 0.3, _prone)
+		if _down > 0.01:
+			sh = lerpf(sh, 2.0 + 0.4 * sin(_phase * 0.5 + float(i)), _down)
+		arm["shoulder"].rotation.x = sh
+		arm["shoulder"].rotation.z = sz
+		arm["elbow"].rotation.x = el
+
+	# Corpo todo: inclinação, altura e deitado
+	var lean := _lean + _flinch * -0.18
+	if _attack_kind == "swing" and at > 0.4:
+		lean += 0.25 * sin((at - 0.4) / 0.6 * PI)
+	if _attack_kind == "lunge":
+		lean += 0.3 * sin(at * PI)
+	rotation.x = lean + (-1.35 * _prone) + (1.45 * _down)
+	position.y = -0.32 * _crouch + 0.18 * _prone + 0.12 * _down
+	if _head != null:
+		var tilt := 0.15 if zombie else 0.0
+		_head.rotation.x = tilt - 0.4 * _flinch + 0.5 * _prone
 
 
 # --- Auxiliares ---

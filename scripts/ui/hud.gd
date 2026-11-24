@@ -103,7 +103,7 @@ func _process(_delta: float) -> void:
 	_thirst_fill.size.x = 236.0 * clampf(player.thirst / 100.0, 0.0, 1.0)
 	_hunger_fill.color = Color(0.85, 0.20, 0.15) if player.hunger < 12.0 else Color(0.80, 0.52, 0.18)
 	_thirst_fill.color = Color(0.85, 0.20, 0.15) if player.thirst < 12.0 else Color(0.28, 0.58, 0.92)
-	_weapon_label.text = "%s  |  Mochila %.1f/%.0f kg" % [player.weapon_name(), player.inventory.total_weight(), player.inventory.capacity]
+	_weapon_label.text = "%s  |  Mochila %.1f/%.0f kg" % [player.weapon_status(), player.inventory.total_weight(), player.inventory.capacity]
 	_hint_label.text = player.hint_text
 	_update_moodles()
 

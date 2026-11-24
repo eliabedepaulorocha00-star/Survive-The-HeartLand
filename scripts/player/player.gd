@@ -69,6 +69,13 @@ var _regen_timer: float = 0.0
 var _attack_cd: float = 0.0
 var randomizer := RandomNumberGenerator.new()
 var _humanoid
+var reload_left: float = 0.0
+var panic: float = 0.0  # 0..1: sobe com zumbis perto, piora a pontaria
+var smell_radius: float = 0.0  # sangramento aberto: zumbis sentem de mais longe
+var _bloom: float = 0.0
+var _aim_hold: float = 0.0
+var _aim_yaw: float = 0.0
+var _reload_uid: int = 0
 var _target = null  # item no chão ou recipiente mais próximo
 var _hunger_level: int = 0
 var _thirst_level: int = 0
@@ -109,6 +116,7 @@ func bind_controls(c) -> void:
 	c.action_pressed.connect(_interact)
 	c.attack_pressed.connect(_try_attack)
 	c.bag_pressed.connect(func(): inventory_requested.emit())
+	c.reload_pressed.connect(start_reload)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -213,13 +221,16 @@ func _physics_process(delta: float) -> void:
 
 	# Corpo vira para onde anda (3ª pessoa) ou para onde a câmera olha (1ª pessoa)
 	var face_yaw := _body.rotation.y
-	if rig.is_first_person():
+	if _aim_hold > 0.0:
+		face_yaw = _aim_yaw
+	elif rig.is_first_person():
 		face_yaw = rig.yaw
 	elif hv.length() > 0.3:
 		face_yaw = atan2(-hv.x, -hv.z)
 	_body.rotation.y = lerp_angle(_body.rotation.y, face_yaw, clampf(12.0 * delta, 0.0, 1.0))
-	var squash := 0.72 if crouching else 1.0
-	_body.scale.y = lerpf(_body.scale.y, squash, clampf(10.0 * delta, 0.0, 1.0))
+	_humanoid.pose = "crouch" if crouching else "stand"
+	_humanoid.sprinting = sprinting
+	_update_combat(delta)
 
 	_update_target()
 
@@ -335,6 +346,9 @@ func _update_target() -> void:
 			best = d2
 			_target = c
 
+	if controls != null:
+		var eq: Dictionary = inventory.equipped_entry()
+		controls.reload_visible = (not eq.is_empty()) and ItemDB.is_firearm(str(eq["id"]))
 	if _target == null:
 		hint_text = ""
 		if controls != null:
@@ -521,6 +535,7 @@ func drop_item(uid: int, n: int = 1) -> void:
 		return
 	var id := str(e["id"])
 	var dur := float(e["dur"])
+	unload_gun(uid)
 	var moved: int = inventory.remove_uid(uid, n)
 	if moved <= 0:
 		return
@@ -578,46 +593,368 @@ func weapon_name() -> String:
 
 # --- Combate ---
 
-## Dano, alcance, custo de stamina e recarga da arma equipada (ou dos punhos).
+## Golpe corpo a corpo da arma equipada (ou dos punhos; arma de fogo vira coronhada).
 func _weapon_stats() -> Dictionary:
 	var e: Dictionary = inventory.equipped_entry()
 	if e.is_empty():
-		return {"dmg": UNARMED_DAMAGE, "range": UNARMED_RANGE, "cost": UNARMED_COST, "cd": UNARMED_COOLDOWN}
+		return {"dmg": UNARMED_DAMAGE, "range": UNARMED_RANGE, "cost": UNARMED_COST, "cd": UNARMED_COOLDOWN, "arc": 90.0, "knock": 0.1}
 	var data := ItemDB.get_item(str(e["id"]))
-	if data.has("ammo"):  # arma de fogo: o tiro chega na Fase 6, por enquanto é coronhada
-		return {"dmg": 10.0, "range": 1.8, "cost": 10.0, "cd": 0.6}
+	if data.has("ammo"):
+		return {"dmg": 10.0, "range": 1.8, "cost": 10.0, "cd": 0.6, "arc": 70.0, "knock": 0.2}
 	return {
 		"dmg": float(data.get("dmg", UNARMED_DAMAGE)),
 		"range": float(data.get("range", 2.0)),
 		"cost": float(data.get("cost", 12.0)),
 		"cd": float(data.get("cd", 0.55)),
+		"arc": float(data.get("arc", 90.0)),
+		"knock": float(data.get("knock", 0.2)),
 	}
 
 
 func _try_attack() -> void:
-	if dead or ui_locked or _attack_cd > 0.0 or stamina < 1.0:
+	if dead or ui_locked or _attack_cd > 0.0:
+		return
+	var e: Dictionary = inventory.equipped_entry()
+	if not e.is_empty() and ItemDB.is_firearm(str(e["id"])):
+		_fire(e)
+		return
+	if stamina < 1.0:
 		return
 	var stats := _weapon_stats()
-	stamina = maxf(0.0, stamina - float(stats["cost"]))
+	var stomp_target = _find_stomp_target()
+	var cost := float(stats["cost"]) * (0.6 if stomp_target != null else 1.0)
+	stamina = maxf(0.0, stamina - cost)
 	_regen_timer = REGEN_DELAY
-	_attack_cd = float(stats["cd"]) * (1.6 if exhausted else 1.0)
-	_body.rotation.y = rig.yaw
-	_swing_weapon()
+	var cd := float(stats["cd"]) * (1.6 if exhausted else 1.0)
+	_attack_cd = cd
+	_aim_hold = 0.8
+	if stomp_target != null:
+		var to: Vector3 = stomp_target.global_position - global_position
+		_aim_yaw = atan2(-to.x, -to.z)
+		_body.rotation.y = _aim_yaw
+		_attack_cd = 0.7
+		_humanoid.play_attack("stomp", 0.6)
+		get_tree().create_timer(0.3).timeout.connect(_resolve_stomp.bind(stomp_target))
+	else:
+		_aim_yaw = rig.yaw
+		_body.rotation.y = rig.yaw
+		_humanoid.play_attack("swing", cd)
+		get_tree().create_timer(cd * 0.5).timeout.connect(_resolve_melee.bind(stats))
 
+
+## Acerta quem está dentro do arco da arma, na hora em que o golpe desce.
+func _resolve_melee(stats: Dictionary) -> void:
+	if dead or not is_inside_tree():
+		return
 	var fwd := -_body.global_transform.basis.z
 	var power := float(stats["dmg"]) * (0.6 if exhausted else 1.0) * float(body.attack_factor()) * CharacterData.mult("melee")
 	var reach := float(stats["range"])
+	var cos_arc := cos(deg_to_rad(float(stats["arc"]) * 0.5))
 	var hit := false
 	for z in get_tree().get_nodes_in_group("zombies"):
-		var to: Vector3 = z.global_position - global_position
+		var to: Vector3 = z.hit_point() - global_position
 		to.y = 0.0
 		var dist := to.length()
-		if dist > 0.01 and dist < reach and fwd.dot(to / dist) > 0.25:
-			z.take_damage(power, global_position)
+		if dist > 0.01 and dist < reach and fwd.dot(to / dist) > cos_arc:
+			z.take_damage(power, global_position, float(stats["knock"]))
+			_blood_puff(z.hit_point() + Vector3(0.0, 0.9, 0.0))
 			hit = true
+	GameManager.emit_sound(global_position, 14.0)
 	if hit:
 		rig.shake(0.25)
 		_wear_weapon()
+
+
+## Zumbi caído (ou rastejando) perto da frente do jogador: dá para pisar na cabeça.
+func _find_stomp_target():
+	var fwd := -_body.global_transform.basis.z
+	var best = null
+	var best_d := 1.9
+	for z in get_tree().get_nodes_in_group("zombies"):
+		if not z.is_grounded():
+			continue
+		var to: Vector3 = Vector3.ZERO
+		var near_len := 1000.0
+		for p in [z.head_position(), z.hit_point(), z.global_position]:
+			var cand: Vector3 = p - global_position
+			cand.y = 0.0
+			if cand.length() < near_len:
+				near_len = cand.length()
+				to = cand
+		to.y = 0.0
+		var d := to.length()
+		if near_len >= 1000.0 or d < 0.001:
+			continue
+		if d < best_d and (d < 0.6 or fwd.dot(to / d) > 0.3):
+			best_d = d
+			best = z
+	return best
+
+
+func _resolve_stomp(z) -> void:
+	if dead or z == null or not is_instance_valid(z):
+		return
+	z.take_damage(200.0, global_position, 0.0, true)
+	_blood_puff(z.head_position() + Vector3(0.0, 0.1, 0.0))
+	rig.shake(0.35)
+	GameManager.emit_sound(global_position, 10.0)
+
+
+# --- Armas de fogo ---
+
+func _fire(e: Dictionary) -> void:
+	var id := str(e["id"])
+	var data := ItemDB.get_item(id)
+	if reload_left > 0.0:
+		return
+	if int(e["mag"]) <= 0:
+		_attack_cd = 0.35
+		if inventory.count(str(data["ammo"])) > 0:
+			start_reload()
+		else:
+			GameManager.notify("Sem munição (%s)." % ItemDB.name_of(str(data["ammo"])))
+		return
+	e["mag"] = int(e["mag"]) - 1
+	_attack_cd = float(data["cd"])
+	_aim_hold = 1.6
+	var origin := global_position + Vector3(0.0, 1.4, 0.0)
+	var range_m := float(data["range"])
+	var aim := _aim_direction(origin, range_m)
+	_aim_yaw = atan2(-aim.x, -aim.z)
+	_body.rotation.y = _aim_yaw
+
+	# Dispersão: base da arma + coice acumulado + pânico + correndo/andando; agachado ajuda
+	var moving := clampf(Vector2(velocity.x, velocity.z).length() / 3.0, 0.0, 1.0)
+	var spread := float(data["spread"]) + _bloom + panic * 3.0 + moving * 1.5 - (0.6 if crouching else 0.0)
+	spread = maxf(0.2, spread)
+	var pellets := int(data["pellets"])
+	var pierce := int(data["pierce"]) if pellets == 1 else 1
+	for i in pellets:
+		_shoot_ray(origin, _spread_dir(aim, spread), range_m, float(data["dmg"]), pierce)
+
+	_bloom = minf(10.0, _bloom + float(data["recoil"]) * 0.3)
+	rig.kick(float(data["recoil"]) * 0.35)
+	rig.shake(0.2 + float(data["recoil"]) * 0.03)
+	if GameSettings.vibration:
+		Input.vibrate_handheld(40)
+	GameManager.emit_sound(global_position, float(data["noise"]))
+	_humanoid.play_attack("shoot", 0.25)
+	_muzzle_flash(origin + aim * 0.9)
+
+
+## Direção da mira: para onde a câmera olha; com um pouco de ajuda (auto-mira) no zumbi mais próximo do centro.
+func _aim_direction(origin: Vector3, range_m: float) -> Vector3:
+	var yaw: float = rig.yaw
+	var fwd := Vector3(-sin(yaw), 0.0, -cos(yaw))
+	var pitch_part := 0.0
+	if rig.is_first_person():
+		pitch_part = float(rig.pitch)
+	var base := (fwd * cos(pitch_part) + Vector3.UP * sin(pitch_part)).normalized()
+	var best = null
+	var best_ang := deg_to_rad(11.0)
+	for z in get_tree().get_nodes_in_group("zombies"):
+		var p: Vector3 = z.hit_point() + Vector3(0.0, 0.9 if not z.is_grounded() else 0.1, 0.0)
+		var to := p - origin
+		var d := to.length()
+		if d < 0.5 or d > range_m:
+			continue
+		var flat := Vector3(to.x, 0.0, to.z).normalized()
+		var ang := fwd.angle_to(flat)
+		if ang < best_ang:
+			best_ang = ang
+			best = to.normalized()
+	if best != null:
+		return best
+	return base
+
+
+func _spread_dir(aim: Vector3, spread_deg: float) -> Vector3:
+	var up := Vector3.UP if absf(aim.y) < 0.95 else Vector3.RIGHT
+	var basis := Basis.looking_at(aim, up)
+	var ang := randf() * TAU
+	var r := deg_to_rad(spread_deg) * sqrt(randf())
+	return (basis * Vector3(sin(r) * cos(ang), sin(r) * sin(ang), -cos(r))).normalized()
+
+
+## Raio do tiro. Acerta zumbis (camada 4) e para no cenário; `pierce` = quantos atravessa.
+func _shoot_ray(origin: Vector3, dir: Vector3, range_m: float, dmg: float, pierce: int) -> void:
+	var space := get_world_3d().direct_space_state
+	var exclude: Array[RID] = [get_rid()]
+	var pos := origin
+	var end := origin + dir * range_m
+	var left := pierce
+	var guard := 0
+	while guard < 6:
+		guard += 1
+		var q := PhysicsRayQueryParameters3D.create(pos, origin + dir * range_m, 1 | 4)
+		q.exclude = exclude
+		var hit := space.intersect_ray(q)
+		if hit.is_empty():
+			break
+		end = hit["position"]
+		var col = hit["collider"]
+		if col != null and col.is_in_group("zombies"):
+			var dist := origin.distance_to(end)
+			var power := dmg * (1.0 - 0.5 * dist / range_m)
+			var head: bool = (not col.is_grounded()) and (end.y - col.global_position.y) > 1.5
+			if head:
+				power *= 2.5
+			col.take_damage(power, global_position, 0.3)
+			_blood_puff(end)
+			exclude.append(col.get_rid())
+			left -= 1
+			pos = end + dir * 0.05
+			if left <= 0:
+				break
+		else:
+			_spark(end)
+			break
+	_tracer(origin + dir * 0.9, end)
+
+
+func start_reload() -> void:
+	var e: Dictionary = inventory.equipped_entry()
+	if e.is_empty() or not ItemDB.is_firearm(str(e["id"])):
+		return
+	if reload_left > 0.0:
+		return
+	var data := ItemDB.get_item(str(e["id"]))
+	var size := int(data["mag"])
+	var need := size - int(e["mag"])
+	if need <= 0:
+		GameManager.notify("O pente já está cheio.")
+		return
+	if inventory.count(str(data["ammo"])) <= 0:
+		GameManager.notify("Sem munição (%s)." % ItemDB.name_of(str(data["ammo"])))
+		return
+	reload_left = float(data["reload"]) * (0.5 + 0.5 * float(need) / float(size))
+	_reload_uid = int(e["uid"])
+	GameManager.notify("Recarregando...")
+
+
+func _finish_reload() -> void:
+	var e: Dictionary = inventory.equipped_entry()
+	if e.is_empty() or int(e["uid"]) != _reload_uid:
+		return
+	var data := ItemDB.get_item(str(e["id"]))
+	var need := int(data["mag"]) - int(e["mag"])
+	var got: int = inventory.consume_n(str(data["ammo"]), need)
+	e["mag"] = int(e["mag"]) + got
+	GameManager.notify("Recarregou (%d/%d)." % [int(e["mag"]), int(data["mag"])])
+
+
+## Descarrega a arma: as balas do pente voltam para a mochila (ou caem no chão).
+func unload_gun(uid: int) -> void:
+	var e: Dictionary = inventory.find_uid(uid)
+	if e.is_empty() or int(e["mag"]) <= 0:
+		return
+	var data := ItemDB.get_item(str(e["id"]))
+	_give_or_drop(str(data["ammo"]), int(e["mag"]))
+	e["mag"] = 0
+	if reload_left > 0.0 and _reload_uid == uid:
+		reload_left = 0.0
+
+
+## Texto do HUD para a arma equipada.
+func weapon_status() -> String:
+	var e: Dictionary = inventory.equipped_entry()
+	if e.is_empty():
+		return "Punhos"
+	var id := str(e["id"])
+	if not ItemDB.is_firearm(id):
+		return ItemDB.name_of(id)
+	var data := ItemDB.get_item(id)
+	var txt := "%s  %d/%d  (+%d)" % [ItemDB.name_of(id), int(e["mag"]), int(data["mag"]), inventory.count(str(data["ammo"]))]
+	if reload_left > 0.0:
+		txt += "  recarregando..."
+	return txt
+
+
+func _update_combat(delta: float) -> void:
+	_bloom = maxf(0.0, _bloom - 5.0 * delta)
+	_aim_hold = maxf(0.0, _aim_hold - delta)
+	if reload_left > 0.0:
+		var e: Dictionary = inventory.equipped_entry()
+		if e.is_empty() or int(e["uid"]) != _reload_uid:
+			reload_left = 0.0  # trocou de arma: cancela
+		else:
+			reload_left -= delta
+			if reload_left <= 0.0:
+				reload_left = 0.0
+				_finish_reload()
+	# Pânico sobe com zumbis perseguindo por perto e desce com calma
+	var near := 0
+	for z in get_tree().get_nodes_in_group("zombies"):
+		if z.is_chasing() and z.global_position.distance_to(global_position) < 8.0:
+			near += 1
+	panic = clampf(panic + (0.12 * float(mini(near, 4)) - 0.10) * delta, 0.0, 1.0)
+	# Cheiro de sangue
+	var bleeding: int = body.bleeding_count()
+	smell_radius = minf(20.0, 5.0 + 4.0 * float(bleeding)) if bleeding > 0 else 0.0
+
+
+# --- Efeitos ---
+
+func _muzzle_flash(pos: Vector3) -> void:
+	var l := OmniLight3D.new()
+	l.light_color = Color(1.0, 0.8, 0.45)
+	l.light_energy = 3.0
+	l.omni_range = 7.0
+	get_parent().add_child(l)
+	l.global_position = pos
+	get_tree().create_timer(0.06).timeout.connect(l.queue_free)
+
+
+func _tracer(from: Vector3, to: Vector3) -> void:
+	var len := from.distance_to(to)
+	if len < 0.2:
+		return
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.025, 0.025, len)
+	mi.mesh = bm
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(1.0, 0.9, 0.5)
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mi.material_override = m
+	get_parent().add_child(mi)
+	mi.look_at_from_position((from + to) * 0.5, to, Vector3.UP)
+	get_tree().create_timer(0.05).timeout.connect(mi.queue_free)
+
+
+func _blood_puff(pos: Vector3) -> void:
+	_particles(pos, Color(0.55, 0.03, 0.03), 10)
+
+
+func _spark(pos: Vector3) -> void:
+	_particles(pos, Color(0.9, 0.8, 0.5), 5)
+
+
+func _particles(pos: Vector3, color: Color, amount: int) -> void:
+	var p := CPUParticles3D.new()
+	p.amount = amount
+	p.one_shot = true
+	p.explosiveness = 1.0
+	p.lifetime = 0.45
+	p.direction = Vector3.UP
+	p.spread = 70.0
+	p.initial_velocity_min = 1.5
+	p.initial_velocity_max = 3.5
+	p.gravity = Vector3(0.0, -9.0, 0.0)
+	var sm := SphereMesh.new()
+	sm.radius = 0.025
+	sm.height = 0.05
+	sm.radial_segments = 4
+	sm.rings = 2
+	p.mesh = sm
+	var m := StandardMaterial3D.new()
+	m.albedo_color = color
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	p.material_override = m
+	get_parent().add_child(p)
+	p.global_position = pos
+	p.emitting = true
+	get_tree().create_timer(1.0).timeout.connect(p.queue_free)
 
 
 ## Cada golpe que acerta desgasta a arma; durabilidade zerada = quebra.
@@ -634,13 +971,7 @@ func _wear_weapon() -> void:
 		inventory.remove_uid(int(e["uid"]), 1)
 
 
-func _swing_weapon() -> void:
-	var tw := create_tween()
-	tw.tween_property(_weapon_pivot, "rotation_degrees:x", -125.0, 0.12)
-	tw.tween_property(_weapon_pivot, "rotation_degrees:x", -15.0, 0.25)
-
-
-## Troca o modelo provisório na mão conforme a arma equipada.
+## Troca o modelo provisório na mão conforme a arma equipada. A arma é filha da mão do boneco.
 func _update_weapon_visual() -> void:
 	if _weapon_pivot == null:
 		return
@@ -655,14 +986,19 @@ func _update_weapon_visual() -> void:
 		_weapon_pivot.remove_child(c)
 		c.queue_free()
 	if id == "":
-		_mesh_node(_weapon_pivot, _sphere_mesh(0.09), Vector3(0.0, 0.3, 0.0), Color(0.85, 0.68, 0.55))  # punho
+		_humanoid.armed = "none"
 		return
 	var data := ItemDB.get_item(id)
+	var is_gun := data.has("ammo")
+	_humanoid.armed = "gun" if is_gun else "melee"
+	_weapon_pivot.rotation_degrees.x = 180.0 if is_gun else -134.0  # arma aponta à frente (arma de fogo) ou para cima (corpo a corpo)
 	var length := float(data.get("len", 0.6))
 	var color: Color = ItemDB.color_of(id)
 	_mesh_node(_weapon_pivot, _box_mesh(Vector3(0.07, length, 0.07)), Vector3(0.0, length * 0.5, 0.0), color)
 	if bool(data.get("head", false)):
 		_mesh_node(_weapon_pivot, _box_mesh(Vector3(0.26, 0.14, 0.06)), Vector3(0.0, length - 0.07, 0.0), Color(0.62, 0.62, 0.66))
+	if is_gun:
+		_mesh_node(_weapon_pivot, _box_mesh(Vector3(0.06, 0.16, 0.09)), Vector3(0.0, -0.04, 0.05), color.darkened(0.2))  # empunhadura
 
 
 func take_damage(amount: float) -> void:
@@ -680,6 +1016,8 @@ func zombie_hit(amount: float) -> void:
 	if dead:
 		return
 	death_cause = "Os zumbis pegaram você."
+	panic = minf(1.0, panic + 0.25)
+	_humanoid.flinch()
 	take_damage(amount)
 	GameManager.notify(body.hit(randomizer))
 
@@ -710,9 +1048,8 @@ func _build_visual() -> void:
 	_humanoid.build(CharacterData.appearance(), true)
 
 	_weapon_pivot = Node3D.new()
-	_weapon_pivot.position = Vector3(0.28, 0.95, -0.06)
-	_weapon_pivot.rotation_degrees.x = -15.0
-	_body.add_child(_weapon_pivot)
+	_weapon_pivot.position = Vector3(0.0, -0.30, 0.0)  # na mão direita
+	_humanoid.hand.add_child(_weapon_pivot)
 	# O modelo da arma é montado por _update_weapon_visual()
 
 

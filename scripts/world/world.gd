@@ -5,6 +5,7 @@ extends Node3D
 
 const PlayerScript = preload("res://scripts/player/player.gd")
 const ZombieScript = preload("res://scripts/world/zombie.gd")
+const HordeScript = preload("res://scripts/world/horde_manager.gd")
 const HudScript = preload("res://scripts/ui/hud.gd")
 const ContainerScript = preload("res://scripts/world/container.gd")
 const GroundItemScript = preload("res://scripts/world/ground_item.gd")
@@ -341,10 +342,17 @@ func _spawn_zombies() -> void:
 	# Dois dentro da casa
 	_add_zombie(Vector3(-3.0, 0.2, -8.0))
 	_add_zombie(Vector3(3.0, 0.2, -7.5))
+	# Alguns rastejadores e hordas dinâmicas
+	_add_zombie(Vector3(18.0, 0.2, 14.0), true)
+	_add_zombie(Vector3(-22.0, 0.2, 6.0), true)
+	var hm := HordeScript.new()
+	hm.player = _player
+	add_child(hm)
 
 
-func _add_zombie(pos: Vector3) -> void:
+func _add_zombie(pos: Vector3, crawl: bool = false) -> void:
 	var z := ZombieScript.new()
+	z.crawler = crawl
 	z.position = pos
 	add_child(z)
 

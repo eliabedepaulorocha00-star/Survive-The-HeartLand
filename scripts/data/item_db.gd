@@ -179,6 +179,7 @@ func _init() -> void:
 	_build_medical()
 	_build_tools()
 	_build_materials()
+	_build_combat()
 
 
 # --- Consulta ---
@@ -256,11 +257,15 @@ func describe(id: String) -> String:
 		lines.append("Vida: +%d" % int(d["heal"]))
 	if d.has("harm"):
 		lines.append("Faz mal: -%d de vida" % int(d["harm"]))
-	if d.has("dmg"):
-		lines.append("Dano: %d  |  Alcance: %.1f m" % [int(d["dmg"]), float(d.get("range", 2.0))])
 	if d.has("ammo"):
-		lines.append("Munição: %s (carregador %d)" % [name_of(str(d["ammo"])), int(d.get("mag", 0))])
-		lines.append("O tiro chega na Fase 6; por enquanto serve de coronhada.")
+		var shots := "%dx " % int(d["pellets"]) if int(d["pellets"]) > 1 else ""
+		lines.append("Dano: %s%d  |  Alcance: %d m  |  Atravessa: %d" % [shots, int(d["dmg"]), int(d["range"]), int(d["pierce"])])
+		lines.append("Munição: %s (pente %d)  |  Recarga: %.1f s" % [name_of(str(d["ammo"])), int(d["mag"]), float(d["reload"])])
+		lines.append("Barulho: %d m  |  Coice: %.0f" % [int(d["noise"]), float(d["recoil"])])
+	elif d.has("dmg"):
+		lines.append("Dano: %d  |  Alcance: %.1f m  |  Arco: %d°" % [int(d["dmg"]), float(d.get("range", 2.0)), int(d.get("arc", 90))])
+		if d.has("knock"):
+			lines.append("Derruba: %d%%  |  Velocidade: %.2f s/golpe" % [int(float(d["knock"]) * 100.0), float(d.get("cd", 0.5))])
 	if d.has("dismantle"):
 		var parts: Array[String] = []
 		for p in d["dismantle"]:
@@ -352,11 +357,14 @@ func _melee(id: String, nm: String, w: float, dmg: float, reach: float, cost: fl
 	_add(id, nm, cat, w, d)
 
 
-func _gun(id: String, nm: String, w: float, ammo_id: String, mag: int, dmg: float, length: float, desc: String) -> void:
-	_add(id, nm, "firearm", w, {
+func _gun(id: String, nm: String, w: float, ammo_id: String, mag: int, dmg: float, length: float, desc: String, extra: Dictionary = {}) -> void:
+	var d := {
 		"equip": true, "ammo": ammo_id, "mag": mag, "dmg": dmg, "dur": 100.0,
 		"len": length, "desc": desc, "color": Color(0.22, 0.23, 0.27),
-	})
+		"cd": 0.4, "reload": 2.0, "pellets": 1, "pierce": 1, "recoil": 4.0, "spread": 1.5, "noise": 90.0, "range": 45.0,
+	}
+	d.merge(extra, true)
+	_add(id, nm, "firearm", w, d)
 
 
 func _food(id: String, nm: String, w: float, food: float, extra: Dictionary = {}) -> void:
@@ -386,11 +394,11 @@ func _build_melee() -> void:
 
 
 func _build_firearms() -> void:
-	_gun("revolver", "Revólver .38", 1.0, "ammo_38", 6, 45.0, 0.22, "Seis tiros e muita fé.")
-	_gun("pistol", "Pistola 9mm", 0.9, "ammo_9mm", 15, 35.0, 0.22, "Carregador grande, dano médio.")
-	_gun("shotgun", "Espingarda calibre 12", 3.2, "ammo_12ga", 5, 90.0, 0.9, "Barulhenta e devastadora de perto.")
-	_gun("hunting_rifle", "Rifle de caça .30-06", 3.6, "ammo_3006", 5, 110.0, 0.95, "Alcance e dano. Comum nas fazendas de Kentucky.")
-	_gun("rifle_22", "Rifle .22", 2.5, "ammo_22", 10, 28.0, 0.8, "Fraco, mas silencioso o bastante e com muita munição.")
+	_gun("revolver", "Revólver .38", 1.0, "ammo_38", 6, 45.0, 0.22, "Seis tiros e muita fé.", {"cd": 0.5, "reload": 2.8, "recoil": 5.5, "spread": 1.4, "noise": 100.0})
+	_gun("pistol", "Pistola 9mm", 0.9, "ammo_9mm", 15, 35.0, 0.22, "Carregador grande, dano médio.", {"cd": 0.28, "reload": 1.6, "recoil": 3.2, "spread": 2.0, "noise": 90.0})
+	_gun("shotgun", "Espingarda calibre 12", 3.2, "ammo_12ga", 5, 20.0, 0.9, "8 chumbos por tiro, atinge vários zumbis. Barulhenta.", {"cd": 0.95, "reload": 3.4, "pellets": 8, "pierce": 1, "recoil": 9.0, "spread": 6.0, "noise": 140.0, "range": 24.0})
+	_gun("hunting_rifle", "Rifle de caça .30-06", 3.6, "ammo_3006", 5, 110.0, 0.95, "Alcance e dano; atravessa até 2 zumbis. Se ouve a 200 m.", {"cd": 1.1, "reload": 3.0, "pierce": 2, "recoil": 7.0, "spread": 0.6, "noise": 200.0, "range": 90.0})
+	_gun("rifle_22", "Rifle .22", 2.5, "ammo_22", 10, 28.0, 0.8, "Fraco, mas faz pouco barulho e tem muita munição.", {"cd": 0.5, "reload": 2.2, "recoil": 2.2, "spread": 0.8, "noise": 45.0, "range": 60.0})
 
 	_add("ammo_38", "Munição .38", "ammo", 0.02, {"desc": "Para revólveres."})
 	_add("ammo_9mm", "Munição 9mm", "ammo", 0.015, {"desc": "Para pistolas."})
@@ -421,6 +429,15 @@ func _build_food() -> void:
 	_food("corn_cob", "Espiga de milho", 0.25, 10.0)
 	_food("tomato", "Tomate", 0.15, 5.0, {"water": 4.0})
 	_food("egg", "Ovo", 0.06, 5.0, {"desc": "Cru. Melhor cozinhar (crafting, parte 2)."})
+
+
+## Arco do golpe (graus) e chance de derrubar o zumbi, por arma branca.
+func _build_combat() -> void:
+	var arcs := {"bat": 120, "axe": 110, "machete": 125, "kitchen_knife": 60, "hunting_knife": 65, "crowbar": 100, "frying_pan": 110, "shovel": 100, "pipe": 100, "pitchfork": 50, "nail_plank": 100, "golf_club": 110, "sledgehammer": 140, "hammer": 80, "wrench": 80}
+	var knocks := {"bat": 0.35, "axe": 0.2, "machete": 0.1, "kitchen_knife": 0.0, "hunting_knife": 0.0, "crowbar": 0.3, "frying_pan": 0.35, "shovel": 0.3, "pipe": 0.3, "pitchfork": 0.15, "nail_plank": 0.3, "golf_club": 0.2, "sledgehammer": 0.7, "hammer": 0.2, "wrench": 0.2}
+	for id in arcs:
+		items[id]["arc"] = arcs[id]
+		items[id]["knock"] = knocks[id]
 
 
 func _build_cooked() -> void:

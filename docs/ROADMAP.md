@@ -29,9 +29,12 @@ Plano baseado em `PROMPT_MASTER.md`, adaptado de Unity (C#) para Godot 4 (GDScri
 
 ## Fase 6 – Zumbis e combate (prompts 23 a 25)
 - [x] Zumbi simples (andar e perseguir) para testar
-- [ ] IA com visão, audição e olfato
-- [ ] Hordas
-- [ ] Combate corpo a corpo e armas de fogo
+- [x] IA com visão (cone + linha de visada), audição (barulho dos tiros/golpes/corrida) e olfato (sangramento)
+- [x] Hordas dinâmicas atraídas por barulho alto (limite de 40 zumbis)
+- [x] Combate corpo a corpo com arco, derrubada e pisão em zumbi caído
+- [x] Armas de fogo: recarga, coice, dispersão, penetração, auto-mira leve, pânico
+- [x] Animações: andar, correr, agachar, ataque, tiro, tropeço, engatinhar (zumbi sem pernas)
+- [ ] Falta: ajustar equilíbrio no celular, sons, mais tipos de zumbi
 
 ## Fase 7 – Base, veículos e skills (prompts 26 a 28)
 - [ ] Barricadas e construção

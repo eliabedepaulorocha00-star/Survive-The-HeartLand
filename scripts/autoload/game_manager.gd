@@ -7,6 +7,7 @@ enum State { MAIN_MENU, LOBBY_SETUP, LOADING_WORLD, IN_GAME, PAUSED, PLAYER_DEAD
 signal state_changed(old_state: int, new_state: int)
 signal message(text: String)
 signal debug_command(cmd: String)
+signal sound_emitted(pos: Vector3, radius: float)
 
 const MAIN_MENU_SCENE := "res://scenes/main_menu.tscn"
 const GAME_SCENE := "res://scenes/game.tscn"
@@ -61,6 +62,11 @@ func start_game() -> void:
 
 func back_to_menu() -> void:
 	change_state(State.MAIN_MENU)
+
+
+## Barulho no mundo (tiro, vidro quebrando, alarme): os zumbis dentro do raio vão investigar.
+func emit_sound(pos: Vector3, radius: float) -> void:
+	sound_emitted.emit(pos, radius)
 
 
 func notify(text: String) -> void:

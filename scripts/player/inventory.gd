@@ -117,6 +117,17 @@ func consume_one(id: String) -> bool:
 	return false
 
 
+## Tira `n` unidades de um item empilhável (munição). Devolve quantas saíram.
+func consume_n(id: String, n: int) -> int:
+	var left := n
+	for e in entries.duplicate():
+		if left <= 0:
+			break
+		if e["id"] == id:
+			left -= remove_uid(int(e["uid"]), left)
+	return n - left
+
+
 func equipped_entry() -> Dictionary:
 	if equipped_uid == 0:
 		return {}
@@ -136,6 +147,6 @@ func _find_stack(id: String) -> Dictionary:
 
 
 func _make(id: String, n: int, dur: float) -> Dictionary:
-	var e := {"uid": _next_uid, "id": id, "n": n, "dur": dur}
+	var e := {"uid": _next_uid, "id": id, "n": n, "dur": dur, "mag": 0}
 	_next_uid += 1
 	return e

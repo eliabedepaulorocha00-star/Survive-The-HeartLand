@@ -10,6 +10,7 @@ signal action_pressed
 signal attack_pressed
 signal pause_pressed
 signal bag_pressed
+signal reload_pressed
 
 const JOY_RADIUS := 100.0
 const JOY_DEADZONE := 0.12
@@ -23,6 +24,12 @@ var action_label: String = "AÇÃO":
 	set(value):
 		if value != action_label:
 			action_label = value
+			queue_redraw()
+
+var reload_visible: bool = false:
+	set(value):
+		if value != reload_visible:
+			reload_visible = value
 			queue_redraw()
 
 var crouch_active: bool = false:
@@ -73,6 +80,7 @@ func _layout_buttons() -> void:
 		"camera": {"center": Vector2(w - 190.0, h - 215.0), "radius": 36.0 * s, "touch": -1},
 		"pause": {"center": Vector2(w - 50.0, 50.0), "radius": 28.0 * s, "touch": -1},
 		"bag": {"center": Vector2(w - 140.0, 52.0), "radius": 36.0 * s, "touch": -1},
+		"reload": {"center": Vector2(w - 330.0, h - 150.0), "radius": 38.0 * s, "touch": -1},
 	}
 	queue_redraw()
 
@@ -101,6 +109,8 @@ func _touch_down(index: int, pos: Vector2) -> void:
 		var b: Dictionary = _buttons[id]
 		var c: Vector2 = b["center"]
 		var r: float = b["radius"]
+		if id == "reload" and not reload_visible:
+			continue
 		if b["touch"] == -1 and pos.distance_to(c) <= r * 1.15:
 			b["touch"] = index
 			_fire_button(id)
@@ -160,6 +170,8 @@ func _fire_button(id: String) -> void:
 			pause_pressed.emit()
 		"bag":
 			bag_pressed.emit()
+		"reload":
+			reload_pressed.emit()
 
 
 func _label_for(id: String) -> String:
@@ -176,6 +188,8 @@ func _label_for(id: String) -> String:
 			return "II"
 		"bag":
 			return "MOCHILA"
+		"reload":
+			return "RECARR."
 	return ""
 
 
@@ -191,6 +205,8 @@ func _draw() -> void:
 		draw_arc(Vector2(150.0, size.y - 140.0), JOY_RADIUS * 0.8, 0.0, TAU, 40, Color(1, 1, 1, 0.12), 2.0)
 
 	for id in _buttons:
+		if id == "reload" and not reload_visible:
+			continue
 		var b: Dictionary = _buttons[id]
 		var c: Vector2 = b["center"]
 		var r: float = b["radius"]
