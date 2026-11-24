@@ -9,7 +9,7 @@ Plano baseado em `PROMPT_MASTER.md`, adaptado de Unity (C#) para Godot 4 (GDScri
 - [x] Movimento com postura (em pé, agachado, correndo) e stamina
 
 ## Fase 3 – Mundo (prompts 12 a 15)
-- [ ] Carregamento do mapa por chunks
+- [x] Mapa 700x700 m por chunks de 100 m (só 3x3 carregados, montagem em etapas, estado de loot/zumbis guardado): cidade Millbrook com Rua Principal, posto, diner, farmácia, delegacia, ferragem, mercado, igreja, casas, caixa-d'água, fazendas com celeiro/silo, carros abandonados e matas
 - [x] Ciclo dia/noite (24h, duração configurável) e clima: ensolarado, nublado, chuva forte, tempestade com raios e neblina densa. Chuva abafa os passos, molha o jogador e neblina/noite reduzem a visão dos zumbis
 - [ ] Interior/exterior
 - [ ] Corte de água e energia

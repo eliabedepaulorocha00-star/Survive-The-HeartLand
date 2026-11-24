@@ -6,7 +6,7 @@ const ZombieScript = preload("res://scripts/world/zombie.gd")
 const MAX_ZOMBIES := 40
 const SPAWN_MIN := 45.0
 const SPAWN_MAX := 70.0
-const WORLD_LIMIT := 140.0
+const WORLD_LIMIT := 330.0
 
 var player
 var _timer: float = 90.0
