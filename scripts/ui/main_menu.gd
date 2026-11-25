@@ -154,7 +154,7 @@ func _build_footer() -> void:
 	add_child(version)
 
 	var help := Label.new()
-	help.text = "Esquerda: andar (até o fim = correr)  |  Direita: olhar  |  Botões: atacar, ação, agachar, câmera"
+	help.text = "Esquerda: andar (até o fim = correr)  |  Direita: olhar  |  Botões: atacar, ação, agachar, câmera  |  Teclado/mouse: WASD, Shift, Ctrl, E, R, Tab, clique"
 	help.position = Vector2(48.0, vp.y - 66.0)
 	help.add_theme_font_size_override("font_size", 15)
 	help.add_theme_color_override("font_color", Color(0.7, 0.72, 0.72))

@@ -38,6 +38,23 @@ var crouch_active: bool = false:
 			crouch_active = value
 			queue_redraw()
 
+## Teclado/mouse em uso: os botões de toque somem e não reagem.
+var kbm_mode: bool = false:
+	set(value):
+		if value == kbm_mode:
+			return
+		kbm_mode = value
+		visible = not value
+		if value:
+			_move_touch = -1
+			_look_touch = -1
+			move_vector = Vector2.ZERO
+			sprinting = false
+			look_delta = Vector2.ZERO
+			for id in _buttons:
+				_buttons[id]["touch"] = -1
+		queue_redraw()
+
 ## Enquanto a mochila (ou outra tela) está aberta, os toques não mexem no jogo.
 var blocked: bool = false:
 	set(value):
@@ -93,7 +110,7 @@ func consume_look() -> Vector2:
 
 
 func _input(event: InputEvent) -> void:
-	if blocked:
+	if blocked or kbm_mode:
 		return
 	if event is InputEventScreenTouch:
 		if event.pressed:

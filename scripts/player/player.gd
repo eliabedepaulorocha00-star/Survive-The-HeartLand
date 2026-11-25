@@ -10,6 +10,7 @@ const CameraRigScript = preload("res://scripts/player/camera_rig.gd")
 const InventoryScript = preload("res://scripts/player/inventory.gd")
 const BodyHealthScript = preload("res://scripts/player/body_health.gd")
 const HumanoidScript = preload("res://scripts/world/humanoid.gd")
+const KbmScript = preload("res://scripts/player/kbm_input.gd")
 const SurvivorScript = preload("res://scripts/world/survivor_model.gd")
 const GroundItemScript = preload("res://scripts/world/ground_item.gd")
 
@@ -109,6 +110,9 @@ func _ready() -> void:
 
 	rig = CameraRigScript.new()
 	add_child(rig)
+	var kbm = KbmScript.new()
+	kbm.player = self
+	add_child(kbm)
 
 
 func bind_controls(c) -> void:
@@ -127,8 +131,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
-			KEY_C:
+			KEY_C, KEY_CTRL:
 				toggle_crouch()
+			KEY_R:
+				start_reload()
 			KEY_V:
 				rig.toggle_view()
 			KEY_E:
