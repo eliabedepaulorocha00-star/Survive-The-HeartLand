@@ -5,6 +5,7 @@ extends Control
 signal closed
 
 const HumanoidScript = preload("res://scripts/world/humanoid.gd")
+const SurvivorScript = preload("res://scripts/world/survivor_model.gd")
 
 var _tab: String = "look"
 var _preview_root: Node3D
@@ -183,9 +184,10 @@ func _set_tab(tab: String) -> void:
 func _rebuild_model() -> void:
 	if _humanoid != null:
 		_humanoid.queue_free()
-	_humanoid = HumanoidScript.new()
+	var look := CharacterData.appearance()
+	_humanoid = SurvivorScript.new() if look["use_model"] else HumanoidScript.new()
 	_preview_root.add_child(_humanoid)
-	_humanoid.build(CharacterData.appearance(), false)
+	_humanoid.build(look, false)
 
 
 # --- Conteúdo das abas ---
@@ -207,6 +209,13 @@ func _refresh() -> void:
 
 
 func _build_look() -> void:
+	_stepper("Modelo", ["Sobrevivente 3D", "Personalizado"], 0 if CharacterData.use_model else 1, func(v): CharacterData.use_model = (v == 0))
+	if CharacterData.use_model:
+		var note := Label.new()
+		note.text = "O Sobrevivente 3D tem visual fixo (só masculino por enquanto). Escolha \"Personalizado\" para mudar roupas e cabelo, ou o gênero feminino."
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		note.add_theme_font_size_override("font_size", 16)
+		_content.add_child(note)
 	_stepper("Gênero", ["Masculino", "Feminino"], int(CharacterData.female), func(v): CharacterData.female = (v == 1))
 	_stepper("Pele", [], CharacterData.skin, func(v): CharacterData.skin = v, CharacterData.SKIN_TONES)
 	_stepper("Cabelo", CharacterData.HAIR_STYLES, CharacterData.hair_style, func(v): CharacterData.hair_style = v)

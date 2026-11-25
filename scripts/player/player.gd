@@ -10,6 +10,7 @@ const CameraRigScript = preload("res://scripts/player/camera_rig.gd")
 const InventoryScript = preload("res://scripts/player/inventory.gd")
 const BodyHealthScript = preload("res://scripts/player/body_health.gd")
 const HumanoidScript = preload("res://scripts/world/humanoid.gd")
+const SurvivorScript = preload("res://scripts/world/survivor_model.gd")
 const GroundItemScript = preload("res://scripts/world/ground_item.gd")
 
 const WALK_SPEED := 3.2
@@ -1043,9 +1044,10 @@ func _check_death() -> void:
 func _build_visual() -> void:
 	_body = Node3D.new()
 	add_child(_body)
-	_humanoid = HumanoidScript.new()
+	var look := CharacterData.appearance()
+	_humanoid = SurvivorScript.new() if look["use_model"] else HumanoidScript.new()
 	_body.add_child(_humanoid)
-	_humanoid.build(CharacterData.appearance(), true)
+	_humanoid.build(look, true)
 
 	_weapon_pivot = Node3D.new()
 	_weapon_pivot.position = Vector3(0.0, -0.30, 0.0)  # na mão direita

@@ -60,6 +60,7 @@ const TRAITS := [
 
 var char_name: String = "Sobrevivente"
 var female: bool = false
+var use_model: bool = true  # true = sobrevivente 3D (só masculino); false = boneco personalizável
 var skin: int = 1
 var hair_style: int = 1
 var hair_color: int = 1
@@ -151,6 +152,7 @@ func start_items() -> Array:
 func appearance() -> Dictionary:
 	return {
 		"female": female,
+		"use_model": use_model and not female,
 		"skin_color": SKIN_TONES[clampi(skin, 0, SKIN_TONES.size() - 1)],
 		"hair_style": hair_style,
 		"hair_color": HAIR_COLORS[clampi(hair_color, 0, HAIR_COLORS.size() - 1)],
@@ -178,7 +180,7 @@ func randomize_look() -> void:
 
 func save_character() -> void:
 	var cfg := ConfigFile.new()
-	for k in ["char_name", "female", "skin", "hair_style", "hair_color", "top_style", "top_color", "bottom_style", "bottom_color", "shoe_color", "profession", "traits"]:
+	for k in ["char_name", "female", "skin", "hair_style", "hair_color", "top_style", "top_color", "bottom_style", "bottom_color", "shoe_color", "profession", "traits", "use_model"]:
 		cfg.set_value("character", k, get(k))
 	cfg.save(SAVE_PATH)
 
@@ -187,7 +189,7 @@ func load_character() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(SAVE_PATH) != OK:
 		return
-	for k in ["char_name", "female", "skin", "hair_style", "hair_color", "top_style", "top_color", "bottom_style", "bottom_color", "shoe_color", "profession", "traits"]:
+	for k in ["char_name", "female", "skin", "hair_style", "hair_color", "top_style", "top_color", "bottom_style", "bottom_color", "shoe_color", "profession", "traits", "use_model"]:
 		if cfg.has_section_key("character", k):
 			set(k, cfg.get_value("character", k))
 	# Garante que um arquivo antigo/alterado não deixe o saldo negativo
