@@ -106,6 +106,53 @@ class Builder:
 		_bm[key] = m
 		return m
 
+	## Extruda uma silhueta lateral (pontos Vector2(y, z), sentido anti-horário) ao longo de X.
+	func profile(pts: Array, thick: float, color: Color, x_off: float = 0.0) -> void:
+		var poly := PackedVector2Array(pts)
+		var area := 0.0
+		for i in poly.size():
+			var a: Vector2 = poly[i]
+			var c: Vector2 = poly[(i + 1) % poly.size()]
+			area += a.x * c.y - c.x * a.y
+		if area < 0.0:
+			poly.reverse()
+		var tris := Geometry2D.triangulate_polygon(poly)
+		var v := PackedVector3Array()
+		var n := PackedVector3Array()
+		var idx := PackedInt32Array()
+		var hx := thick * 0.5
+		for side in [1.0, -1.0]:
+			var base := v.size()
+			for q in poly:
+				v.append(Vector3(x_off + hx * side, q.x, q.y))
+				n.append(Vector3(side, 0, 0))
+			for k in range(0, tris.size(), 3):
+				if side > 0.0:
+					idx.append_array([base + tris[k], base + tris[k + 1], base + tris[k + 2]])
+				else:
+					idx.append_array([base + tris[k], base + tris[k + 2], base + tris[k + 1]])
+		for i in poly.size():
+			var a: Vector2 = poly[i]
+			var c: Vector2 = poly[(i + 1) % poly.size()]
+			var d := c - a
+			if d.length() < 0.0001:
+				continue
+			var nn := Vector3(0, d.y, -d.x).normalized()
+			var base := v.size()
+			v.append(Vector3(x_off + hx, a.x, a.y))
+			v.append(Vector3(x_off + hx, c.x, c.y))
+			v.append(Vector3(x_off - hx, c.x, c.y))
+			v.append(Vector3(x_off - hx, a.x, a.y))
+			for k in 4:
+				n.append(nn)
+			idx.append_array([base, base + 1, base + 2, base, base + 2, base + 3])
+		var arr := []
+		arr.resize(Mesh.ARRAY_MAX)
+		arr[Mesh.ARRAY_VERTEX] = v
+		arr[Mesh.ARRAY_NORMAL] = n
+		arr[Mesh.ARRAY_INDEX] = idx
+		_push(color, arr, Transform3D.IDENTITY)
+
 	func min_y() -> float:
 		var lo := 1.0e9
 		for k in surf:
@@ -175,6 +222,8 @@ static func _fallback(b: Builder, id: String) -> void:
 # --- Armas (comprimento ao longo de +Y) ---
 
 static func _weapon(b: Builder, id: String) -> void:
+	if _shaped(b, id):
+		return
 	match id:
 		"bat":
 			b.cyl(0.018, 0.018, 0.22, Vector3(0, 0.11, 0), Color(0.30, 0.22, 0.14))  # cabo
@@ -518,3 +567,92 @@ static func _ammo(b: Builder, id: String) -> void:
 		else:
 			b.cyl(0.006, 0.006, 0.03, Vector3(x, 0.065, 0.0), BRASS, Vector3.ZERO, 6)
 			b.cyl(0.002, 0.006, 0.014, Vector3(x, 0.087, 0.0), Color(0.60, 0.42, 0.20), Vector3.ZERO, 6)
+
+
+# --- Armas com silhueta de verdade (referência: armas históricas dos EUA) ---
+# Eixos: cano para +Y, "para cima" é +Z, a empunhadura fica perto da origem.
+
+static func _shaped(b: Builder, id: String) -> bool:
+	match id:
+		"pistol":  # estilo M1911
+			b.profile([Vector2(-0.050, 0.045), Vector2(-0.078, -0.095), Vector2(-0.022, -0.095), Vector2(0.002, 0.005), Vector2(0.050, 0.005), Vector2(0.078, 0.014), Vector2(0.072, 0.032), Vector2(0.17, 0.032), Vector2(0.17, 0.046)], 0.026, DARK_STEEL)
+			b.profile([Vector2(-0.048, 0.044), Vector2(-0.046, 0.082), Vector2(-0.030, 0.084), Vector2(-0.018, 0.074), Vector2(0.155, 0.074), Vector2(0.165, 0.082), Vector2(0.205, 0.080), Vector2(0.205, 0.044)], 0.030, Color(0.30, 0.31, 0.34))
+			b.profile([Vector2(-0.040, 0.030), Vector2(-0.070, -0.085), Vector2(-0.030, -0.085), Vector2(-0.006, 0.010)], 0.034, Color(0.42, 0.22, 0.10))
+			b.box(Vector3(0.008, 0.02, 0.02), Vector3(0, -0.058, 0.07), DARK_STEEL)  # cão
+			b.box(Vector3(0.006, 0.014, 0.022), Vector3(0, 0.032, 0.02), STEEL, Vector3(-20, 0, 0))  # gatilho
+			b.cyl(0.010, 0.010, 0.04, Vector3(0, 0.205, 0.058), STEEL, Vector3.ZERO, 8)  # bucha do cano
+			for i in 6:
+				b.box(Vector3(0.032, 0.003, 0.012), Vector3(0, -0.035 + float(i) * 0.008, 0.078), GUN_BLACK)  # serrilha
+			return true
+		"revolver":  # estilo Colt M1917
+			b.profile([Vector2(-0.040, 0.092), Vector2(-0.060, 0.050), Vector2(-0.012, 0.012), Vector2(0.040, 0.004), Vector2(0.040, 0.022), Vector2(0.090, 0.022), Vector2(0.090, 0.060), Vector2(0.130, 0.060), Vector2(0.130, 0.092)], 0.030, Color(0.28, 0.29, 0.33))
+			b.profile([Vector2(-0.045, 0.040), Vector2(-0.092, -0.080), Vector2(-0.030, -0.088), Vector2(0.000, 0.006)], 0.034, Color(0.40, 0.20, 0.10))
+			b.cyl(0.036, 0.036, 0.062, Vector3(0, 0.060, 0.052), Color(0.45, 0.46, 0.50), Vector3.ZERO, 12)
+			for i in 6:
+				var a := float(i) / 6.0 * TAU
+				b.cyl(0.0065, 0.0065, 0.064, Vector3(sin(a) * 0.024, 0.060, 0.052 + cos(a) * 0.024), Color(0.15, 0.15, 0.17), Vector3.ZERO, 6)
+			b.cyl(0.012, 0.012, 0.19, Vector3(0, 0.222, 0.074), Color(0.28, 0.29, 0.33), Vector3.ZERO, 8)  # cano
+			b.cyl(0.006, 0.006, 0.12, Vector3(0, 0.19, 0.046), STEEL, Vector3.ZERO, 6)  # vareta extratora
+			b.box(Vector3(0.008, 0.016, 0.014), Vector3(0, 0.31, 0.092), STEEL)  # massa de mira
+			b.box(Vector3(0.009, 0.022, 0.024), Vector3(0, -0.050, 0.100), DARK_STEEL, Vector3(25, 0, 0))  # cão
+			return true
+		"shotgun":  # estilo Winchester 1897 (pump)
+			b.profile([Vector2(-0.50, 0.040), Vector2(-0.488, -0.100), Vector2(-0.30, -0.052), Vector2(-0.14, -0.048), Vector2(-0.098, -0.092), Vector2(-0.056, -0.086), Vector2(-0.034, -0.030), Vector2(0.06, -0.030), Vector2(0.06, 0.0), Vector2(0.15, 0.0), Vector2(0.15, 0.078), Vector2(-0.06, 0.078), Vector2(-0.20, 0.072), Vector2(-0.40, 0.064)], 0.040, Color(0.46, 0.28, 0.14))
+			b.profile([Vector2(-0.03, 0.0), Vector2(0.15, 0.0), Vector2(0.15, 0.080), Vector2(-0.03, 0.080)], 0.044, DARK_STEEL)  # carcaça
+			b.cyl(0.0145, 0.0145, 0.64, Vector3(0, 0.46, 0.060), Color(0.20, 0.21, 0.24), Vector3.ZERO, 12)
+			b.cyl(0.011, 0.011, 0.46, Vector3(0, 0.38, 0.030), Color(0.28, 0.29, 0.32), Vector3.ZERO, 10)
+			b.cyl(0.030, 0.030, 0.20, Vector3(0, 0.36, 0.040), Color(0.50, 0.30, 0.15), Vector3.ZERO, 12)  # pump
+			b.box(Vector3(0.007, 0.014, 0.016), Vector3(0, 0.77, 0.080), BRASS)
+			b.box(Vector3(0.010, 0.020, 0.024), Vector3(0, -0.04, 0.095), DARK_STEEL, Vector3(20, 0, 0))  # cão
+			b.box(Vector3(0.008, 0.075, 0.008), Vector3(0, 0.010, -0.040), DARK_STEEL)  # guarda do gatilho
+			b.box(Vector3(0.008, 0.008, 0.030), Vector3(0, 0.048, -0.020), DARK_STEEL)
+			b.box(Vector3(0.008, 0.008, 0.030), Vector3(0, -0.020, -0.020), DARK_STEEL)
+			return true
+		"hunting_rifle":  # estilo M1903A4 com luneta
+			b.profile([Vector2(-0.42, 0.040), Vector2(-0.410, -0.085), Vector2(-0.26, -0.055), Vector2(-0.11, -0.050), Vector2(-0.075, -0.095), Vector2(-0.030, -0.090), Vector2(-0.010, -0.040), Vector2(0.06, -0.034), Vector2(0.50, -0.030), Vector2(0.50, 0.024), Vector2(0.12, 0.030), Vector2(-0.02, 0.038), Vector2(-0.10, 0.052), Vector2(-0.26, 0.070)], 0.040, Color(0.42, 0.26, 0.13))
+			b.profile([Vector2(-0.08, 0.020), Vector2(0.12, 0.020), Vector2(0.12, 0.068), Vector2(-0.08, 0.068)], 0.034, DARK_STEEL)
+			b.cyl(0.0115, 0.0115, 0.70, Vector3(0, 0.40, 0.050), Color(0.22, 0.23, 0.26), Vector3.ZERO, 10)
+			b.cyl(0.018, 0.018, 0.22, Vector3(0, 0.05, 0.108), GUN_BLACK, Vector3.ZERO, 12)  # luneta
+			b.cyl(0.026, 0.018, 0.05, Vector3(0, 0.185, 0.108), GUN_BLACK, Vector3.ZERO, 12)
+			b.cyl(0.020, 0.026, 0.05, Vector3(0, -0.085, 0.108), GUN_BLACK, Vector3.ZERO, 12)
+			b.box(Vector3(0.012, 0.025, 0.030), Vector3(0, 0.0, 0.085), DARK_STEEL)  # suportes
+			b.box(Vector3(0.012, 0.025, 0.030), Vector3(0, 0.10, 0.085), DARK_STEEL)
+			b.cyl(0.005, 0.005, 0.07, Vector3(0.035, -0.04, 0.060), STEEL, Vector3(0, 0, 90), 6)  # ferrolho
+			b.sphere(0.012, Vector3(0.072, -0.04, 0.060), STEEL)
+			b.box(Vector3(0.008, 0.07, 0.008), Vector3(0, 0.015, -0.045), DARK_STEEL)
+			return true
+		"rifle_22":  # estilo M1 Carbine
+			b.profile([Vector2(-0.38, 0.035), Vector2(-0.372, -0.078), Vector2(-0.22, -0.050), Vector2(-0.10, -0.046), Vector2(-0.066, -0.088), Vector2(-0.028, -0.084), Vector2(-0.010, -0.036), Vector2(0.05, -0.030), Vector2(0.42, -0.024), Vector2(0.42, 0.030), Vector2(0.10, 0.036), Vector2(-0.02, 0.040), Vector2(-0.10, 0.056), Vector2(-0.22, 0.064)], 0.036, Color(0.60, 0.40, 0.22))
+			b.profile([Vector2(-0.07, 0.030), Vector2(0.10, 0.030), Vector2(0.10, 0.070), Vector2(-0.07, 0.070)], 0.030, DARK_STEEL)
+			b.profile([Vector2(0.10, 0.024), Vector2(0.40, 0.024), Vector2(0.40, 0.056), Vector2(0.10, 0.060)], 0.034, Color(0.66, 0.46, 0.26))  # guarda-mão
+			b.cyl(0.0095, 0.0095, 0.62, Vector3(0, 0.40, 0.056), Color(0.22, 0.23, 0.26), Vector3.ZERO, 8)
+			b.box(Vector3(0.020, 0.075, 0.12), Vector3(0, 0.030, -0.110), GUN_BLACK, Vector3(-4, 0, 0))  # carregador
+			b.box(Vector3(0.008, 0.016, 0.018), Vector3(0, 0.66, 0.072), STEEL)  # massa de mira
+			b.box(Vector3(0.012, 0.016, 0.016), Vector3(0, 0.0, 0.080), STEEL)  # alça de mira
+			b.box(Vector3(0.008, 0.07, 0.008), Vector3(0, 0.012, -0.040), DARK_STEEL)
+			return true
+		"axe":
+			b.cyl(0.018, 0.015, 0.78, Vector3(0, 0.39, 0), Color(0.50, 0.34, 0.18), Vector3.ZERO, 8)
+			b.profile([Vector2(0.60, -0.012), Vector2(0.60, 0.040), Vector2(0.72, 0.075), Vector2(0.78, 0.115), Vector2(0.78, -0.115), Vector2(0.72, -0.075), Vector2(0.60, -0.040)].map(func(p): return Vector2(p.x, p.y)), 0.024, Color(0.60, 0.62, 0.66))
+			b.box(Vector3(0.03, 0.06, 0.07), Vector3(0, 0.66, -0.04), DARK_STEEL)
+			return true
+		"machete":
+			b.cyl(0.016, 0.017, 0.16, Vector3(0, 0.08, 0), RUBBER, Vector3.ZERO, 8)
+			b.box(Vector3(0.045, 0.014, 0.034), Vector3(0, 0.165, 0), DARK_STEEL)
+			b.profile([Vector2(0.17, -0.020), Vector2(0.17, 0.020), Vector2(0.60, 0.040), Vector2(0.70, 0.030), Vector2(0.72, -0.020)], 0.008, Color(0.70, 0.72, 0.76))
+			return true
+		"kitchen_knife":
+			b.box(Vector3(0.024, 0.11, 0.016), Vector3(0, 0.055, 0), Color(0.12, 0.12, 0.13))
+			b.profile([Vector2(0.11, -0.012), Vector2(0.11, 0.020), Vector2(0.25, 0.022), Vector2(0.285, -0.008)], 0.005, Color(0.80, 0.82, 0.86))
+			return true
+		"hunting_knife":
+			b.cyl(0.015, 0.016, 0.11, Vector3(0, 0.055, 0), Color(0.30, 0.18, 0.10), Vector3.ZERO, 8)
+			b.box(Vector3(0.05, 0.012, 0.024), Vector3(0, 0.116, 0), BRASS)
+			b.profile([Vector2(0.12, -0.014), Vector2(0.12, 0.018), Vector2(0.24, 0.020), Vector2(0.29, 0.0), Vector2(0.25, -0.014)], 0.006, Color(0.75, 0.77, 0.81))
+			return true
+		"shovel":
+			b.cyl(0.017, 0.017, 0.82, Vector3(0, 0.45, 0), Color(0.50, 0.34, 0.18), Vector3.ZERO, 8)
+			b.box(Vector3(0.10, 0.03, 0.03), Vector3(0, 0.87, 0), DARK_WOOD)
+			b.profile([Vector2(-0.30, 0.0), Vector2(-0.22, 0.095), Vector2(0.02, 0.105), Vector2(0.02, -0.105), Vector2(-0.22, -0.095)].map(func(p): return Vector2(p.x, p.y)), 0.010, Color(0.66, 0.68, 0.72))
+			return true
+	return false
