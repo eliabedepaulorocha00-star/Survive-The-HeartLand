@@ -9,6 +9,7 @@ signal inventory_requested
 const CameraRigScript = preload("res://scripts/player/camera_rig.gd")
 const InventoryScript = preload("res://scripts/player/inventory.gd")
 const BodyHealthScript = preload("res://scripts/player/body_health.gd")
+const ItemModels = preload("res://scripts/world/item_models.gd")
 const HumanoidScript = preload("res://scripts/world/humanoid.gd")
 const KbmScript = preload("res://scripts/player/kbm_input.gd")
 const SurvivorScript = preload("res://scripts/world/survivor_model.gd")
@@ -1002,13 +1003,9 @@ func _update_weapon_visual() -> void:
 	var is_gun := data.has("ammo")
 	_humanoid.armed = "gun" if is_gun else "melee"
 	_weapon_pivot.rotation_degrees.x = 180.0 if is_gun else -134.0  # arma aponta à frente (arma de fogo) ou para cima (corpo a corpo)
-	var length := float(data.get("len", 0.6))
-	var color: Color = ItemDB.color_of(id)
-	_mesh_node(_weapon_pivot, _box_mesh(Vector3(0.07, length, 0.07)), Vector3(0.0, length * 0.5, 0.0), color)
-	if bool(data.get("head", false)):
-		_mesh_node(_weapon_pivot, _box_mesh(Vector3(0.26, 0.14, 0.06)), Vector3(0.0, length - 0.07, 0.0), Color(0.62, 0.62, 0.66))
-	if is_gun:
-		_mesh_node(_weapon_pivot, _box_mesh(Vector3(0.06, 0.16, 0.09)), Vector3(0.0, -0.04, 0.05), color.darkened(0.2))  # empunhadura
+	var mi := MeshInstance3D.new()
+	mi.mesh = ItemModels.held_mesh(id)
+	_weapon_pivot.add_child(mi)
 
 
 func take_damage(amount: float) -> void:

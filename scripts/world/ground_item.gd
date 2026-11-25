@@ -1,4 +1,6 @@
 extends Node3D
+
+const ItemModels = preload("res://scripts/world/item_models.gd")
 ## Item solto no chão: espalhado pelo mapa ou largado pelo jogador.
 ## Fica no grupo "pickups"; o jogador pega com o botão de ação.
 
@@ -25,22 +27,12 @@ func display_name() -> String:
 	return nm
 
 
-# Caixinha colorida pela categoria; o tamanho acompanha o peso. Os modelos entram depois.
+# Modelo low-poly do item (scripts/world/item_models.gd); o brilho fraquinho ajuda a achar no escuro.
 func _build_visual() -> void:
-	var weight: float = ItemDB.weight_of(item_id)
-	var s := clampf(0.10 + weight * 0.06, 0.10, 0.40)
-	var color: Color = ItemDB.color_of(item_id)
-	var mesh := BoxMesh.new()
-	mesh.size = Vector3(s * 1.3, s * 0.6, s)
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.roughness = 0.8
-	mat.emission_enabled = true
-	mat.emission = color
-	mat.emission_energy_multiplier = 0.25  # brilho fraquinho ajuda a achar o item no escuro
 	var mi := MeshInstance3D.new()
-	mi.mesh = mesh
-	mi.material_override = mat
-	mi.position.y = s * 0.3
+	mi.mesh = ItemModels.ground_mesh(item_id)
 	mi.rotation.y = randf() * TAU
+	mi.position.y = 0.02
+	mi.scale = Vector3.ONE * 1.3  # um pouco maior para ser fácil de ver no celular
+	mi.visibility_range_end = 60.0
 	add_child(mi)

@@ -48,3 +48,5 @@ Plano baseado em `PROMPT_MASTER.md`, adaptado de Unity (C#) para Godot 4 (GDScri
 - [x] Boneco articulado com roupas do dia a dia (jogador e zumbis)
 - [x] Customização: gênero, pele, cabelo, roupas; 9 profissões; 15 traços com sistema de pontos
 - [ ] Habilidades por prática (Fase 7) usarão a profissão escolhida
+- [x] Modelos low-poly de ~95 itens (armas, latas, garrafas, remédios, ferramentas) no chão e na mão — `scripts/world/item_models.gd`
+- [ ] Trocar por modelos .glb (ex.: Kenney Survival Kit, CC0) quando houver arquivos em assets/items/
