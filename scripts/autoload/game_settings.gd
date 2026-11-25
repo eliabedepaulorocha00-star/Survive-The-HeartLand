@@ -55,8 +55,96 @@ const SAVED_KEYS := [
 const PRESET_KEYS := ["render_scale", "fps_index", "draw_distance", "shadows", "aa", "bloom"]
 
 
+# --- Teclas (teclado e mouse) ---
+# Cada ação tem 2 espaços. Teclado = código da tecla (>0); botão do mouse = -índice do botão.
+const ACTIONS := [
+	["forward", "Andar para frente", [KEY_W, KEY_UP]],
+	["back", "Andar para trás", [KEY_S, KEY_DOWN]],
+	["left", "Andar para a esquerda", [KEY_A, KEY_LEFT]],
+	["right", "Andar para a direita", [KEY_D, KEY_RIGHT]],
+	["sprint", "Correr (segurar)", [KEY_SHIFT, 0]],
+	["crouch", "Agachar", [KEY_C, KEY_CTRL]],
+	["interact", "Ação / pegar / abrir", [KEY_E, 0]],
+	["attack", "Atacar / atirar", [-MOUSE_BUTTON_LEFT, KEY_F]],
+	["aim", "Mirar em 1ª pessoa (segurar)", [-MOUSE_BUTTON_RIGHT, 0]],
+	["reload", "Recarregar", [KEY_R, 0]],
+	["inventory", "Mochila", [KEY_TAB, KEY_I]],
+	["view", "Trocar câmera 1ª/3ª pessoa", [KEY_V, 0]],
+	["pause", "Pausar", [KEY_ESCAPE, 0]],
+]
+var keybinds: Dictionary = {}
+
+
+func reset_keybinds() -> void:
+	keybinds = {}
+	for a in ACTIONS:
+		keybinds[a[0]] = (a[2] as Array).duplicate()
+
+
+func binds_of(id: String) -> Array:
+	return keybinds.get(id, [0, 0])
+
+
+## Quer dizer: algum botão desta ação está pressionado agora?
+func action_down(id: String) -> bool:
+	for code in binds_of(id):
+		var c: int = int(code)
+		if c > 0 and Input.is_key_pressed(c as Key):
+			return true
+		if c < 0 and Input.is_mouse_button_pressed((-c) as MouseButton):
+			return true
+	return false
+
+
+## O evento é o apertar (ou soltar, se `pressed` = false) desta ação?
+func event_is(event: InputEvent, id: String, pressed: bool = true) -> bool:
+	var code := 0
+	if event is InputEventKey:
+		if event.echo or event.pressed != pressed:
+			return false
+		code = int(event.keycode)
+	elif event is InputEventMouseButton:
+		if event.pressed != pressed:
+			return false
+		code = -int(event.button_index)
+	else:
+		return false
+	return code != 0 and binds_of(id).has(code)
+
+
+func bind_name(code: int) -> String:
+	if code == 0:
+		return "—"
+	if code > 0:
+		return OS.get_keycode_string(code as Key)
+	match -code:
+		MOUSE_BUTTON_LEFT:
+			return "Mouse esquerdo"
+		MOUSE_BUTTON_RIGHT:
+			return "Mouse direito"
+		MOUSE_BUTTON_MIDDLE:
+			return "Mouse meio"
+		_:
+			return "Mouse botão %d" % (-code)
+
+
+## Define o botão de uma ação; se ele já era de outra ação, tira de lá.
+func set_bind(id: String, slot: int, code: int) -> void:
+	if code != 0:
+		for k in keybinds:
+			var arr: Array = keybinds[k]
+			for i in arr.size():
+				if int(arr[i]) == code:
+					arr[i] = 0
+	var mine: Array = keybinds[id]
+	mine[slot] = code
+	save_settings()
+	changed.emit()
+
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	reset_keybinds()
 	load_settings()
 	apply()
 
@@ -118,6 +206,8 @@ func save_settings() -> void:
 	var cfg := ConfigFile.new()
 	for k in SAVED_KEYS:
 		cfg.set_value("settings", k, get(k))
+	for a in keybinds:
+		cfg.set_value("keybinds", a, keybinds[a])
 	cfg.save(SAVE_PATH)
 
 
@@ -128,3 +218,8 @@ func load_settings() -> void:
 	for k in SAVED_KEYS:
 		if cfg.has_section_key("settings", k):
 			set(k, cfg.get_value("settings", k))
+	for a in ACTIONS:
+		if cfg.has_section_key("keybinds", a[0]):
+			var v = cfg.get_value("keybinds", a[0])
+			if v is Array and v.size() == 2:
+				keybinds[a[0]] = [int(v[0]), int(v[1])]

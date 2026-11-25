@@ -47,10 +47,24 @@ func _process(_delta: float) -> void:
 	if active and Input.mouse_mode != want:
 		Input.mouse_mode = want
 	# Segurar o botão esquerdo repete golpes de arma branca
-	if _can_play() and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+	if _can_play() and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and GameSettings.action_down("attack"):
 		var e: Dictionary = player.inventory.equipped_entry()
 		if e.is_empty() or not ItemDB.is_firearm(str(e["id"])):
 			player._try_attack()
+
+
+## Ações ligadas a botões do mouse (quando o jogador remapeia, por exemplo, "Ação" para o botão lateral).
+func _mouse_action(event: InputEvent) -> void:
+	if GameSettings.event_is(event, "crouch"):
+		player.toggle_crouch()
+	elif GameSettings.event_is(event, "reload"):
+		player.start_reload()
+	elif GameSettings.event_is(event, "view"):
+		player.rig.toggle_view()
+	elif GameSettings.event_is(event, "interact"):
+		player._interact()
+	elif GameSettings.event_is(event, "inventory"):
+		player.inventory_requested.emit()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -60,17 +74,20 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and captured and event.device != InputEvent.DEVICE_ID_EMULATION:
 		player.rig.apply_look(event.relative)
 	elif event is InputEventMouseButton and event.device != InputEvent.DEVICE_ID_EMULATION:
-		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		if GameSettings.event_is(event, "attack"):
 			if captured:
 				player._try_attack()
-		elif event.button_index == MOUSE_BUTTON_RIGHT:
-			if event.pressed and not _rmb_down:
+		elif GameSettings.event_is(event, "aim"):
+			if not _rmb_down:
 				_rmb_down = true
 				_rmb_prev_blend = player.rig.target_blend
 				player.rig.target_blend = 1.0
-			elif not event.pressed and _rmb_down:
+		elif GameSettings.event_is(event, "aim", false):
+			if _rmb_down:
 				_rmb_down = false
 				player.rig.target_blend = _rmb_prev_blend
+		elif GameSettings.event_is(event, "inventory") or GameSettings.event_is(event, "interact") or GameSettings.event_is(event, "reload") or GameSettings.event_is(event, "crouch") or GameSettings.event_is(event, "view"):
+			_mouse_action(event)
 		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			player.rig.target_blend = 1.0
 		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:

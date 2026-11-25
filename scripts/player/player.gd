@@ -130,21 +130,20 @@ func _unhandled_input(event: InputEvent) -> void:
 	if dead or ui_locked or GameManager.state != GameManager.State.IN_GAME:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
-		match event.keycode:
-			KEY_C, KEY_CTRL:
-				toggle_crouch()
-			KEY_R:
-				start_reload()
-			KEY_V:
-				rig.toggle_view()
-			KEY_E:
-				_interact()
-			KEY_I, KEY_TAB:
-				inventory_requested.emit()
-			KEY_F, KEY_SPACE:
-				_try_attack()
-			KEY_ESCAPE:
-				GameManager.change_state(GameManager.State.PAUSED)
+		if GameSettings.event_is(event, "crouch"):
+			toggle_crouch()
+		elif GameSettings.event_is(event, "reload"):
+			start_reload()
+		elif GameSettings.event_is(event, "view"):
+			rig.toggle_view()
+		elif GameSettings.event_is(event, "interact"):
+			_interact()
+		elif GameSettings.event_is(event, "inventory"):
+			inventory_requested.emit()
+		elif GameSettings.event_is(event, "attack"):
+			_try_attack()
+		elif GameSettings.event_is(event, "pause") or event.keycode == KEY_ESCAPE:
+			GameManager.change_state(GameManager.State.PAUSED)
 
 
 func _process(delta: float) -> void:
@@ -168,7 +167,7 @@ func _physics_process(delta: float) -> void:
 	var moving := strength > 0.1
 
 	# Postura e velocidade
-	var wants_sprint: bool = Input.is_key_pressed(KEY_SHIFT)
+	var wants_sprint: bool = GameSettings.action_down("sprint")
 	if controls != null and controls.sprinting:
 		wants_sprint = true
 	sprinting = wants_sprint and moving and not crouching and not exhausted and stamina > 0.0 and body.can_sprint()
@@ -314,13 +313,13 @@ func _read_move_input() -> Vector2:
 	if controls != null:
 		v = Vector2(controls.move_vector.x, -controls.move_vector.y)
 	var k := Vector2.ZERO
-	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
+	if GameSettings.action_down("forward"):
 		k.y += 1.0
-	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
+	if GameSettings.action_down("back"):
 		k.y -= 1.0
-	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
+	if GameSettings.action_down("right"):
 		k.x += 1.0
-	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
+	if GameSettings.action_down("left"):
 		k.x -= 1.0
 	if k != Vector2.ZERO:
 		v = k.normalized()
