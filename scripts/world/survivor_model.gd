@@ -48,21 +48,27 @@ func build(_a: Dictionary, backpack: bool = false) -> void:
 
 ## Nós de junta invisíveis (mesma convenção do humanoid.gd: pose em pé, braços pendurados).
 func _build_joints() -> void:
+	_pelvis = Node3D.new()
+	_pelvis.position = Vector3(0.0, 0.92, 0.0)
+	add_child(_pelvis)
+	_chest = Node3D.new()
+	_chest.position = Vector3(0.0, 0.13, 0.0)
+	_pelvis.add_child(_chest)
 	_head = Node3D.new()
-	_head.position = Vector3(0.0, 1.62, 0.0)
-	add_child(_head)
+	_head.position = Vector3(0.0, 0.57, 0.0)
+	_chest.add_child(_head)
 	for side in [-1.0, 1.0]:
 		var hip := Node3D.new()
-		hip.position = Vector3(side * 0.105, 0.90, 0.0)
-		add_child(hip)
+		hip.position = Vector3(side * 0.105, -0.02, 0.0)
+		_pelvis.add_child(hip)
 		var knee := Node3D.new()
 		knee.position = Vector3(0.0, -0.43, 0.0)
 		hip.add_child(knee)
 		_legs.append({"hip": hip, "knee": knee})
 	for side in [-1.0, 1.0]:
 		var shoulder := Node3D.new()
-		shoulder.position = Vector3(side * 0.245, 1.36, 0.0)
-		add_child(shoulder)
+		shoulder.position = Vector3(side * 0.245, 0.31, 0.0)
+		_chest.add_child(shoulder)
 		var elbow := Node3D.new()
 		elbow.position = Vector3(0.0, -0.28, 0.0)
 		shoulder.add_child(elbow)
@@ -191,8 +197,7 @@ func _add_backpack() -> void:
 
 
 ## Anima como o humanoid.gd e depois copia as juntas para os ossos.
-func animate(speed: float, delta: float) -> void:
-	super.animate(speed, delta)
+func _apply_extra() -> void:
 	_sync_bones()
 
 
@@ -206,6 +211,8 @@ func _sync_bones() -> void:
 	_skeleton.set_bone_pose_rotation(11, Quaternion(_legs[1]["knee"].basis))
 	_skeleton.set_bone_pose_rotation(13, Quaternion(_legs[0]["hip"].basis))
 	_skeleton.set_bone_pose_rotation(14, Quaternion(_legs[0]["knee"].basis))
+	_skeleton.set_bone_pose_rotation(0, Quaternion(_pelvis.basis))
+	_skeleton.set_bone_pose_rotation(1, Quaternion(_chest.basis))
 	_skeleton.set_bone_pose_rotation(3, Quaternion(_head.basis))
 
 

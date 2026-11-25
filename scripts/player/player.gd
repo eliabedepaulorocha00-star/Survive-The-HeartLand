@@ -71,6 +71,7 @@ var _attack_cd: float = 0.0
 var randomizer := RandomNumberGenerator.new()
 var _humanoid
 var reload_left: float = 0.0
+var _reload_total: float = 1.0
 var panic: float = 0.0  # 0..1: sobe com zumbis perto, piora a pontaria
 var smell_radius: float = 0.0  # sangramento aberto: zumbis sentem de mais longe
 var _bloom: float = 0.0
@@ -229,7 +230,9 @@ func _physics_process(delta: float) -> void:
 	elif hv.length() > 0.3:
 		face_yaw = atan2(-hv.x, -hv.z)
 	_body.rotation.y = lerp_angle(_body.rotation.y, face_yaw, clampf(12.0 * delta, 0.0, 1.0))
-	_humanoid.pose = "crouch" if crouching else "stand"
+	_humanoid.pose = "down" if dead else ("crouch" if crouching else "stand")
+	_humanoid.reloading = reload_left > 0.0
+	_humanoid.reload_progress = 1.0 - reload_left / maxf(_reload_total, 0.01)
 	_humanoid.sprinting = sprinting
 	_update_combat(delta)
 
@@ -829,6 +832,7 @@ func start_reload() -> void:
 		GameManager.notify("Sem munição (%s)." % ItemDB.name_of(str(data["ammo"])))
 		return
 	reload_left = float(data["reload"]) * (0.5 + 0.5 * float(need) / float(size))
+	_reload_total = reload_left
 	_reload_uid = int(e["uid"])
 	GameManager.notify("Recarregando...")
 
