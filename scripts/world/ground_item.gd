@@ -29,10 +29,6 @@ func display_name() -> String:
 
 # Modelo low-poly do item (scripts/world/item_models.gd); o brilho fraquinho ajuda a achar no escuro.
 func _build_visual() -> void:
-	var mi := MeshInstance3D.new()
-	mi.mesh = ItemModels.ground_mesh(item_id)
-	mi.rotation.y = randf() * TAU
-	mi.position.y = 0.02
-	mi.scale = Vector3.ONE * 1.3  # um pouco maior para ser fácil de ver no celular
-	mi.visibility_range_end = 60.0
-	add_child(mi)
+	var node: Node3D = ItemModels.ground_node(item_id)
+	node.rotation.y = randf() * TAU
+	add_child(node)

@@ -188,6 +188,109 @@ class Builder:
 		return am
 
 
+# --- Modelos .glb de armas (assets/items) ---
+# [arquivo, direção do cano no modelo, comprimento em metros, onde fica a empunhadura (0 = coronha, 1 = boca), altura da empunhadura (0 = baixo, 1 = topo)]
+const GLB := {
+	"revolver": ["Colt_M1917_Revolver", Vector3(0, 0, 1), 0.30, 0.12, 0.25],
+	"sw_victory": ["SW_Victory_Model", Vector3(0, 0, 1), 0.28, 0.12, 0.25],
+	"shotgun": ["Winchester_Model_1897", Vector3(-1, 0, 0), 1.05, 0.32, 0.35],
+	"hunting_rifle": ["M1903A4_Sniper_Rifle", Vector3(-1, 0, 0), 1.10, 0.31, 0.30],
+	"rifle_22": ["M1941_Johnson_Rifle", Vector3(0, 0, -1), 1.05, 0.30, 0.38],
+	"enfield": ["M1917_Enfield_Rifle", Vector3(-0.4775, 0.2447, -0.8438), 1.17, 0.27, 0.42],
+	"m3_grease": ["M3_Grease_Gun", Vector3(0, 0, 1), 0.57, 0.25, 0.28],
+	"reising": ["Reising_M50_SMG", Vector3(-1, 0, 0), 0.80, 0.31, 0.30],
+	"m42": ["United_Defense_M42", Vector3(-1, 0, 0), 0.80, 0.30, 0.35],
+}
+static var _glb_xf: Dictionary = {}
+
+
+static func has_glb(id: String) -> bool:
+	return GLB.has(id)
+
+
+## Transformação do modelo .glb para o espaço da arma (cano +Y, cima +Z, empunhadura na origem).
+## Devolve {"xf": Transform3D, "lo_z": menor altura depois de pronto}.
+static func _glb_info(id: String, scene_root: Node3D) -> Dictionary:
+	if _glb_xf.has(id):
+		return _glb_xf[id]
+	var spec: Array = GLB[id]
+	var fw: Vector3 = (spec[1] as Vector3).normalized()
+	var up := (Vector3.UP - fw * Vector3.UP.dot(fw)).normalized()
+	var rt := fw.cross(up)
+	var rot := Basis(rt, fw, up).transposed()  # nativo -> arma
+	var bb := _mesh_aabb(scene_root, Transform3D.IDENTITY)
+	var lo := Vector3(1e9, 1e9, 1e9)
+	var hi := -lo
+	for i in 8:
+		var c := bb.get_endpoint(i)
+		var q := rot * c
+		lo = lo.min(q)
+		hi = hi.max(q)
+	var sc: float = float(spec[2]) / maxf(hi.y - lo.y, 0.001)
+	var grip := Vector3(0.0, lo.y + float(spec[3]) * (hi.y - lo.y), lo.z + float(spec[4]) * (hi.z - lo.z))
+	var xf := Transform3D(rot * sc, -(grip * sc))
+	var info := {"xf": xf, "lo_z": (lo.z - grip.z) * sc}
+	_glb_xf[id] = info
+	return info
+
+
+static func _mesh_aabb(n: Node, t: Transform3D) -> AABB:
+	var xf := t
+	if n is Node3D:
+		xf = t * (n as Node3D).transform
+	var out := AABB()
+	var first := true
+	if n is MeshInstance3D:
+		out = xf * (n as MeshInstance3D).mesh.get_aabb()
+		first = false
+	for c in n.get_children():
+		var a := _mesh_aabb(c, xf)
+		if a.size != Vector3.ZERO:
+			out = a if first else out.merge(a)
+			first = false
+	return out
+
+
+static func _glb_node(id: String, ground: bool) -> Node3D:
+	var spec: Array = GLB[id]
+	var scene: PackedScene = load("res://assets/items/%s.glb" % spec[0])
+	var model: Node3D = scene.instantiate()
+	var info := _glb_info(id, model)
+	var holder := Node3D.new()
+	holder.add_child(model)
+	model.transform = info["xf"]
+	if ground:
+		# deita a arma: comprimento ao longo de -Z, "cima" para +Y, encostada no chão
+		var outer := Node3D.new()
+		outer.add_child(holder)
+		holder.rotation = Vector3(-PI * 0.5, 0.0, 0.0)
+		outer.position.y = -float(info["lo_z"])
+		var top := Node3D.new()
+		top.add_child(outer)
+		return top
+	return holder
+
+
+## Nó da arma na mão (origem na empunhadura).
+static func held_node(id: String) -> Node3D:
+	if GLB.has(id):
+		return _glb_node(id, false)
+	var mi := MeshInstance3D.new()
+	mi.mesh = held_mesh(id)
+	return mi
+
+
+## Nó do item no chão (base em y=0).
+static func ground_node(id: String) -> Node3D:
+	if GLB.has(id):
+		return _glb_node(id, true)
+	var mi := MeshInstance3D.new()
+	mi.mesh = ground_mesh(id)
+	mi.scale = Vector3.ONE * 1.3
+	mi.position.y = 0.02
+	return mi
+
+
 # --- API ---
 
 static func ground_mesh(id: String) -> ArrayMesh:

@@ -1003,9 +1003,7 @@ func _update_weapon_visual() -> void:
 	var is_gun := data.has("ammo")
 	_humanoid.armed = "gun" if is_gun else "melee"
 	_weapon_pivot.rotation_degrees.x = 180.0 if is_gun else -134.0  # arma aponta à frente (arma de fogo) ou para cima (corpo a corpo)
-	var mi := MeshInstance3D.new()
-	mi.mesh = ItemModels.held_mesh(id)
-	_weapon_pivot.add_child(mi)
+	_weapon_pivot.add_child(ItemModels.held_node(id))
 
 
 func take_damage(amount: float) -> void:

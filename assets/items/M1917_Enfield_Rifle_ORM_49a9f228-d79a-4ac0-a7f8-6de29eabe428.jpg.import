@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://bg4xnrgub8cvy"
+path="res://.godot/imported/M1917_Enfield_Rifle_ORM_49a9f228-d79a-4ac0-a7f8-6de29eabe428.jpg-8ecb215c44d06e1c300fc3777965fc51.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "e8541e2c3778b3f4aae6ef6b623a3fb9"
+}
+
+[deps]
+
+source_file="res://assets/items/M1917_Enfield_Rifle_ORM_49a9f228-d79a-4ac0-a7f8-6de29eabe428.jpg"
+dest_files=["res://.godot/imported/M1917_Enfield_Rifle_ORM_49a9f228-d79a-4ac0-a7f8-6de29eabe428.jpg-8ecb215c44d06e1c300fc3777965fc51.ctex"]
+
+[params]
+
+compress/mode=0
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=1

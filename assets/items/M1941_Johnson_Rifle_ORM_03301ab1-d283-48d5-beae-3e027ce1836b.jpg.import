@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://jemr5x30av04"
+path="res://.godot/imported/M1941_Johnson_Rifle_ORM_03301ab1-d283-48d5-beae-3e027ce1836b.jpg-8eb6a70fe5a685aa6907b60a5a5327aa.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "15a19c9142504c7d8f4b4386e9469189"
+}
+
+[deps]
+
+source_file="res://assets/items/M1941_Johnson_Rifle_ORM_03301ab1-d283-48d5-beae-3e027ce1836b.jpg"
+dest_files=["res://.godot/imported/M1941_Johnson_Rifle_ORM_03301ab1-d283-48d5-beae-3e027ce1836b.jpg-8eb6a70fe5a685aa6907b60a5a5327aa.ctex"]
+
+[params]
+
+compress/mode=0
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=1

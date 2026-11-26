@@ -102,7 +102,7 @@ const LOOT := {
 	"police": {
 		"rolls": [3, 6],
 		"items": [
-			["pistol", 6, 1, 1], ["ammo_9mm", 10, 8, 20], ["revolver", 3, 1, 1],
+			["pistol", 6, 1, 1], ["ammo_9mm", 10, 8, 20], ["revolver", 3, 1, 1], ["sw_victory", 3, 1, 1], ["m3_grease", 1, 1, 1], ["reising", 1, 1, 1],
 			["ammo_38", 6, 6, 12], ["shotgun", 3, 1, 1], ["ammo_12ga", 7, 4, 10],
 			["flashlight", 6, 1, 1], ["bandage", 4, 1, 2], ["first_aid_kit", 3, 1, 1],
 			["crowbar", 3, 1, 1], ["radio", 4, 1, 1], ["battery", 5, 1, 3],
@@ -126,7 +126,7 @@ const LOOT := {
 			["plank", 4, 1, 1], ["gas_can", 5, 1, 1], ["corn_cob", 8, 1, 3],
 			["potato", 6, 1, 3], ["carrot", 4, 1, 2], ["apple", 4, 1, 3],
 			["tomato", 4, 1, 2], ["egg", 5, 1, 4], ["milk", 3, 1, 1],
-			["hunting_rifle", 1, 1, 1], ["ammo_3006", 2, 3, 8], ["shotgun", 1, 1, 1],
+			["hunting_rifle", 1, 1, 1], ["enfield", 1, 1, 1], ["m42", 1, 1, 1], ["ammo_3006", 2, 3, 8], ["shotgun", 1, 1, 1],
 			["ammo_12ga", 3, 3, 8], ["rifle_22", 2, 1, 1], ["ammo_22", 4, 6, 15],
 			["bourbon", 3, 1, 1], ["water_bottle", 4, 1, 1], ["jeans", 3, 1, 1],
 			["tshirt", 3, 1, 1], ["sweet_tea", 3, 1, 1], ["machete", 2, 1, 1],
@@ -399,6 +399,12 @@ func _build_firearms() -> void:
 	_gun("shotgun", "Espingarda calibre 12", 3.2, "ammo_12ga", 5, 20.0, 0.9, "8 chumbos por tiro, atinge vários zumbis. Barulhenta.", {"cd": 0.95, "reload": 3.4, "pellets": 8, "pierce": 1, "recoil": 9.0, "spread": 6.0, "noise": 140.0, "range": 24.0})
 	_gun("hunting_rifle", "Rifle de caça .30-06", 3.6, "ammo_3006", 5, 110.0, 0.95, "Alcance e dano; atravessa até 2 zumbis. Se ouve a 200 m.", {"cd": 1.1, "reload": 3.0, "pierce": 2, "recoil": 7.0, "spread": 0.6, "noise": 200.0, "range": 90.0})
 	_gun("rifle_22", "Rifle .22", 2.5, "ammo_22", 10, 28.0, 0.8, "Fraco, mas faz pouco barulho e tem muita munição.", {"cd": 0.5, "reload": 2.2, "recoil": 2.2, "spread": 0.8, "noise": 45.0, "range": 60.0})
+
+	_gun("sw_victory", "Revólver S&W Victory", 1.1, "ammo_38", 6, 48.0, 0.24, "Revólver de serviço, firme e confiável.", {"cd": 0.5, "reload": 2.6, "recoil": 5.0, "spread": 1.2, "noise": 100.0})
+	_gun("enfield", "Rifle M1917 Enfield", 4.1, "ammo_3006", 6, 105.0, 1.1, "Ferrolho robusto de guerra. Atravessa até 2 zumbis.", {"cd": 1.0, "reload": 3.2, "pierce": 2, "recoil": 7.0, "spread": 0.7, "noise": 200.0, "range": 85.0})
+	_gun("m3_grease", "Submetralhadora M3", 3.6, "ammo_9mm", 30, 28.0, 0.57, "Cadência alta e muito barulho.", {"cd": 0.13, "reload": 2.4, "recoil": 2.6, "spread": 3.2, "noise": 110.0, "range": 35.0})
+	_gun("reising", "Submetralhadora Reising M50", 3.1, "ammo_9mm", 20, 30.0, 0.8, "Leve e precisa para uma submetralhadora.", {"cd": 0.15, "reload": 2.2, "recoil": 2.4, "spread": 2.6, "noise": 105.0, "range": 38.0})
+	_gun("m42", "Submetralhadora M42", 3.3, "ammo_9mm", 25, 29.0, 0.8, "Coronha de madeira e carregador reto.", {"cd": 0.14, "reload": 2.3, "recoil": 2.5, "spread": 2.8, "noise": 108.0, "range": 36.0})
 
 	_add("ammo_38", "Munição .38", "ammo", 0.02, {"desc": "Para revólveres."})
 	_add("ammo_9mm", "Munição 9mm", "ammo", 0.015, {"desc": "Para pistolas."})
