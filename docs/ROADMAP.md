@@ -51,3 +51,4 @@ Plano baseado em `PROMPT_MASTER.md`, adaptado de Unity (C#) para Godot 4 (GDScri
 - [x] Modelos low-poly de ~95 itens (armas, latas, garrafas, remédios, ferramentas) no chão e na mão — `scripts/world/item_models.gd`
 - [ ] Trocar por modelos .glb (ex.: Kenney Survival Kit, CC0) quando houver arquivos em assets/items/
 - [x] Armas com modelos .glb reais (assets/items): Colt M1917, S&W Victory, Winchester 1897, M1903A4, M1941 Johnson, M1917 Enfield, M3 Grease Gun, Reising M50, M42 (as 5 últimas novas no jogo)
+- [x] Modelos .glb de ~89 itens (comida, bebidas, remédios, ferramentas, armas brancas) em assets/items/props; pistola segue com modelo por código

@@ -202,34 +202,93 @@ const GLB := {
 	"m42": ["United_Defense_M42", Vector3(-1, 0, 0), 0.80, 0.30, 0.35],
 }
 static var _glb_xf: Dictionary = {}
+static var _spec_cache: Dictionary = {}
+
+# Armas brancas e pistola do pacote de props (os modelos vêm com "cima" = +Z).
+# id: [direção da ponta/cano no modelo, direção "lateral/cima" no modelo]
+const PROP_HELD := {
+	"bat": [Vector3(0, 0, -1), Vector3(1, 0, 0)],
+	"axe": [Vector3(0, 0, 1), Vector3(1, 0, 0)],
+	"machete": [Vector3(1, 0, 0), Vector3(0, 1, 0)],
+	"kitchen_knife": [Vector3(1, 0, 0), Vector3(0, 1, 0)],
+	"hunting_knife": [Vector3(1, 0, 0), Vector3(0, 1, 0)],
+	"crowbar": [Vector3(1, 0, 0), Vector3(0, 1, 0)],
+	"frying_pan": [Vector3(-1, 0, 0), Vector3(0, 1, 0)],
+	"shovel": [Vector3(0, 0, 1), Vector3(0, 1, 0)],
+	"pipe": [Vector3(1, 0, 0), Vector3(0, 1, 0)],
+	"pitchfork": [Vector3(0, 0, 1), Vector3(1, 0, 0)],
+	"nail_plank": [Vector3(0, 0, 1), Vector3(1, 0, 0)],
+	"golf_club": [Vector3(0, 0, -1), Vector3(1, 0, 0)],
+	"sledgehammer": [Vector3(0, 0, 1), Vector3(1, 0, 0)],
+	"hammer": [Vector3(0, 0, 1), Vector3(1, 0, 0)],
+	"wrench": [Vector3(0, 0, 1), Vector3(1, 0, 0)],
+	"pistol": [Vector3(1, 0, 0), Vector3(0, 0, 1)],
+}
 
 
 static func has_glb(id: String) -> bool:
-	return GLB.has(id)
+	return not _spec(id).is_empty()
+
+
+## Descrição do modelo .glb do item (vazia se não houver): path, fw, up, len, gf, gh, held.
+static func _spec(id: String) -> Dictionary:
+	if _spec_cache.has(id):
+		return _spec_cache[id]
+	var out := {}
+	if GLB.has(id):
+		var g: Array = GLB[id]
+		out = {"path": "res://assets/items/%s.glb" % g[0], "fw": g[1], "up": Vector3.ZERO, "len": g[2], "gf": g[3], "gh": g[4], "held": true}
+	elif ResourceLoader.exists("res://assets/items/props/%s.glb" % id):
+		var path := "res://assets/items/props/%s.glb" % id
+		if PROP_HELD.has(id):
+			var h: Array = PROP_HELD[id]
+			var is_gun := id == "pistol"
+			out = {"path": path, "fw": h[0], "up": h[1], "len": float(ItemDB.get_item(id).get("len", 0.5)), "gf": 0.30 if is_gun else 0.08, "gh": 0.30 if is_gun else 0.5, "held": true}
+		else:
+			out = {"path": path, "held": false}
+	_spec_cache[id] = out
+	return out
 
 
 ## Transformação do modelo .glb para o espaço da arma (cano +Y, cima +Z, empunhadura na origem).
-## Devolve {"xf": Transform3D, "lo_z": menor altura depois de pronto}.
 static func _glb_info(id: String, scene_root: Node3D) -> Dictionary:
 	if _glb_xf.has(id):
 		return _glb_xf[id]
-	var spec: Array = GLB[id]
-	var fw: Vector3 = (spec[1] as Vector3).normalized()
-	var up := (Vector3.UP - fw * Vector3.UP.dot(fw)).normalized()
-	var rt := fw.cross(up)
-	var rot := Basis(rt, fw, up).transposed()  # nativo -> arma
+	var spec := _spec(id)
+	var info := {}
 	var bb := _mesh_aabb(scene_root, Transform3D.IDENTITY)
-	var lo := Vector3(1e9, 1e9, 1e9)
-	var hi := -lo
-	for i in 8:
-		var c := bb.get_endpoint(i)
-		var q := rot * c
-		lo = lo.min(q)
-		hi = hi.max(q)
-	var sc: float = float(spec[2]) / maxf(hi.y - lo.y, 0.001)
-	var grip := Vector3(0.0, lo.y + float(spec[3]) * (hi.y - lo.y), lo.z + float(spec[4]) * (hi.z - lo.z))
-	var xf := Transform3D(rot * sc, -(grip * sc))
-	var info := {"xf": xf, "lo_z": (lo.z - grip.z) * sc}
+	if bool(spec["held"]):
+		var fw: Vector3 = (spec["fw"] as Vector3).normalized()
+		var upv: Vector3 = spec["up"]
+		if upv == Vector3.ZERO:
+			upv = Vector3.UP
+		var up := (upv - fw * upv.dot(fw)).normalized()
+		var rt := fw.cross(up)
+		var rot := Basis(rt, fw, up).transposed()  # nativo -> arma
+		var lo := Vector3(1e9, 1e9, 1e9)
+		var hi := -lo
+		for i in 8:
+			var q := rot * bb.get_endpoint(i)
+			lo = lo.min(q)
+			hi = hi.max(q)
+		var sc: float = float(spec["len"]) / maxf(hi.y - lo.y, 0.001)
+		var grip := Vector3((lo.x + hi.x) * 0.5, lo.y + float(spec["gf"]) * (hi.y - lo.y), lo.z + float(spec["gh"]) * (hi.z - lo.z))
+		info = {"xf": Transform3D(rot * sc, -(grip * sc)), "lo_z": (lo.z - grip.z) * sc}
+	else:
+		# item comum: o modelo vem com "cima" = +Z; o tamanho segue o modelo feito por código
+		var ref := ground_mesh(id).get_aabb()
+		var ref_len := maxf(ref.size.x, maxf(ref.size.y, ref.size.z))
+		var rot := Basis(Vector3.RIGHT, -PI * 0.5)
+		var lo := Vector3(1e9, 1e9, 1e9)
+		var hi := -lo
+		for i in 8:
+			var q := rot * bb.get_endpoint(i)
+			lo = lo.min(q)
+			hi = hi.max(q)
+		var cur := maxf(hi.x - lo.x, maxf(hi.y - lo.y, hi.z - lo.z))
+		var sc: float = ref_len * 1.2 / maxf(cur, 0.001)
+		var ctr := Vector3((lo.x + hi.x) * 0.5, lo.y, (lo.z + hi.z) * 0.5)
+		info = {"xf": Transform3D(rot * sc, -(ctr * sc)), "lo_z": 0.0}
 	_glb_xf[id] = info
 	return info
 
@@ -252,14 +311,14 @@ static func _mesh_aabb(n: Node, t: Transform3D) -> AABB:
 
 
 static func _glb_node(id: String, ground: bool) -> Node3D:
-	var spec: Array = GLB[id]
-	var scene: PackedScene = load("res://assets/items/%s.glb" % spec[0])
+	var spec := _spec(id)
+	var scene: PackedScene = load(spec["path"])
 	var model: Node3D = scene.instantiate()
 	var info := _glb_info(id, model)
 	var holder := Node3D.new()
 	holder.add_child(model)
 	model.transform = info["xf"]
-	if ground:
+	if ground and bool(spec["held"]):
 		# deita a arma: comprimento ao longo de -Z, "cima" para +Y, encostada no chão
 		var outer := Node3D.new()
 		outer.add_child(holder)
@@ -273,7 +332,7 @@ static func _glb_node(id: String, ground: bool) -> Node3D:
 
 ## Nó da arma na mão (origem na empunhadura).
 static func held_node(id: String) -> Node3D:
-	if GLB.has(id):
+	if has_glb(id) and bool(_spec(id)["held"]):
 		return _glb_node(id, false)
 	var mi := MeshInstance3D.new()
 	mi.mesh = held_mesh(id)
@@ -282,7 +341,7 @@ static func held_node(id: String) -> Node3D:
 
 ## Nó do item no chão (base em y=0).
 static func ground_node(id: String) -> Node3D:
-	if GLB.has(id):
+	if has_glb(id):
 		return _glb_node(id, true)
 	var mi := MeshInstance3D.new()
 	mi.mesh = ground_mesh(id)
