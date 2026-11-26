@@ -102,6 +102,7 @@ func _build_keys(tab: VBoxContainer) -> void:
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	info.add_theme_font_size_override("font_size", 18)
 	tab.add_child(info)
+	_add_check(tab, "debug_input", "Diagnóstico de entrada (mostra na tela o que o mouse/teclado enviam)")
 	for a in GameSettings.ACTIONS:
 		var row := _new_row(tab, a[1])
 		var pair: Array = []

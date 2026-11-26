@@ -16,7 +16,63 @@ func _exit_tree() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
+var _dbg: Label
+var _dbg_counts: Dictionary = {}
+var _dbg_last: String = ""
+var _dbg_layer: CanvasLayer
+
+
+## Painel de diagnóstico (Configurações > Teclas): mostra o que o aparelho realmente envia.
+func _debug_event(event: InputEvent) -> void:
+	if event is InputEventScreenDrag:
+		return
+	var key := event.get_class() + " dev=" + str(event.device)
+	if event is InputEventMouseMotion:
+		key += " botao=" + ("sim" if event.button_mask != 0 else "nao")
+		_dbg_last = "motion rel=%s pos=%s mask=%d" % [str(event.relative), str(event.position), event.button_mask]
+	elif event is InputEventMouseButton:
+		_dbg_last = "botao %d %s" % [event.button_index, "apertou" if event.pressed else "soltou"]
+	elif event is InputEventScreenTouch:
+		_dbg_last = "toque %s idx=%d" % ["apertou" if event.pressed else "soltou", event.index]
+	elif event is InputEventKey:
+		_dbg_last = "tecla %s" % event.as_text_keycode()
+	_dbg_counts[key] = int(_dbg_counts.get(key, 0)) + 1
+
+
+func _update_debug_panel() -> void:
+	if not GameSettings.debug_input:
+		if _dbg_layer != null:
+			_dbg_layer.queue_free()
+			_dbg_layer = null
+			_dbg = null
+		return
+	if _dbg == null:
+		_dbg_layer = CanvasLayer.new()
+		_dbg_layer.layer = 100
+		add_child(_dbg_layer)
+		var bg := ColorRect.new()
+		bg.color = Color(0, 0, 0, 0.7)
+		bg.position = Vector2(8, 90)
+		bg.size = Vector2(720, 520)
+		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_dbg_layer.add_child(bg)
+		_dbg = Label.new()
+		_dbg.position = Vector2(16, 96)
+		_dbg.add_theme_font_size_override("font_size", 17)
+		_dbg.add_theme_color_override("font_color", Color(1, 1, 0.3))
+		_dbg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_dbg_layer.add_child(_dbg)
+	var t := "DIAGNOSTICO  %s | %s | Godot %s\n" % [OS.get_model_name(), OS.get_name(), Engine.get_version_info().get("string", "?")]
+	t += "kbm ativo=%s  dedo=%s  jogando=%s  mouse_mode=%d\n" % [str(active), str(_finger_down), str(_can_play()), Input.mouse_mode]
+	t += "pos mouse=%s  velocidade=%s\n" % [str(get_viewport().get_mouse_position()), str(Input.get_last_mouse_velocity())]
+	for k in _dbg_counts:
+		t += "%s: %d\n" % [k, _dbg_counts[k]]
+	_dbg.text = t + "ultimo: " + _dbg_last
+
+
 func _input(event: InputEvent) -> void:
+	if GameSettings.debug_input:
+		_debug_event(event)
 	if event is InputEventKey and event.pressed and not event.echo:
 		_set_active(true)
 	elif event is InputEventMouseMotion:
@@ -59,6 +115,7 @@ func _can_play() -> bool:
 
 
 func _process(_delta: float) -> void:
+	_update_debug_panel()
 	var want := Input.MOUSE_MODE_CAPTURED if _can_play() else Input.MOUSE_MODE_VISIBLE
 	if active and Input.mouse_mode != want:
 		Input.mouse_mode = want

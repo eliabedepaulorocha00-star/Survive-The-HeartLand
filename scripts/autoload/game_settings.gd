@@ -39,6 +39,7 @@ var show_stats: bool = true
 var look_sensitivity: float = 0.16
 var look_accel: float = 0.8
 var invert_y: bool = false
+var debug_input: bool = false  # mostra na tela o que o teclado/mouse enviam (diagnóstico)
 var button_scale: float = 1.0
 var vibration: bool = true
 # Áudio
