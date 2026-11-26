@@ -107,8 +107,16 @@ class Builder:
 		return m
 
 	## Extruda uma silhueta lateral (pontos Vector2(y, z), sentido anti-horário) ao longo de X.
-	func profile(pts: Array, thick: float, color: Color, x_off: float = 0.0) -> void:
+	func profile(pts: Array, thick: float, color: Color, x_off: float = 0.0, smooth: int = 0) -> void:
 		var poly := PackedVector2Array(pts)
+		for _it in smooth:
+			var cut := PackedVector2Array()
+			for i in poly.size():
+				var a: Vector2 = poly[i]
+				var c: Vector2 = poly[(i + 1) % poly.size()]
+				cut.append(a.lerp(c, 0.25))
+				cut.append(a.lerp(c, 0.75))
+			poly = cut
 		var area := 0.0
 		for i in poly.size():
 			var a: Vector2 = poly[i]
@@ -575,9 +583,9 @@ static func _ammo(b: Builder, id: String) -> void:
 static func _shaped(b: Builder, id: String) -> bool:
 	match id:
 		"pistol":  # estilo M1911
-			b.profile([Vector2(-0.050, 0.045), Vector2(-0.078, -0.095), Vector2(-0.022, -0.095), Vector2(0.002, 0.005), Vector2(0.050, 0.005), Vector2(0.078, 0.014), Vector2(0.072, 0.032), Vector2(0.17, 0.032), Vector2(0.17, 0.046)], 0.026, DARK_STEEL)
+			b.profile([Vector2(-0.050, 0.045), Vector2(-0.078, -0.095), Vector2(-0.022, -0.095), Vector2(0.002, 0.005), Vector2(0.050, 0.005), Vector2(0.078, 0.014), Vector2(0.072, 0.032), Vector2(0.17, 0.032), Vector2(0.17, 0.046)], 0.026, DARK_STEEL, 0.0, 1)
 			b.profile([Vector2(-0.048, 0.044), Vector2(-0.046, 0.082), Vector2(-0.030, 0.084), Vector2(-0.018, 0.074), Vector2(0.155, 0.074), Vector2(0.165, 0.082), Vector2(0.205, 0.080), Vector2(0.205, 0.044)], 0.030, Color(0.30, 0.31, 0.34))
-			b.profile([Vector2(-0.040, 0.030), Vector2(-0.070, -0.085), Vector2(-0.030, -0.085), Vector2(-0.006, 0.010)], 0.034, Color(0.42, 0.22, 0.10))
+			b.profile([Vector2(-0.040, 0.030), Vector2(-0.070, -0.085), Vector2(-0.030, -0.085), Vector2(-0.006, 0.010)], 0.034, Color(0.42, 0.22, 0.10), 0.0, 1)
 			b.box(Vector3(0.008, 0.02, 0.02), Vector3(0, -0.058, 0.07), DARK_STEEL)  # cão
 			b.box(Vector3(0.006, 0.014, 0.022), Vector3(0, 0.032, 0.02), STEEL, Vector3(-20, 0, 0))  # gatilho
 			b.cyl(0.010, 0.010, 0.04, Vector3(0, 0.205, 0.058), STEEL, Vector3.ZERO, 8)  # bucha do cano
@@ -586,7 +594,7 @@ static func _shaped(b: Builder, id: String) -> bool:
 			return true
 		"revolver":  # estilo Colt M1917
 			b.profile([Vector2(-0.040, 0.092), Vector2(-0.060, 0.050), Vector2(-0.012, 0.012), Vector2(0.040, 0.004), Vector2(0.040, 0.022), Vector2(0.090, 0.022), Vector2(0.090, 0.060), Vector2(0.130, 0.060), Vector2(0.130, 0.092)], 0.030, Color(0.28, 0.29, 0.33))
-			b.profile([Vector2(-0.045, 0.040), Vector2(-0.092, -0.080), Vector2(-0.030, -0.088), Vector2(0.000, 0.006)], 0.034, Color(0.40, 0.20, 0.10))
+			b.profile([Vector2(-0.045, 0.040), Vector2(-0.092, -0.080), Vector2(-0.030, -0.088), Vector2(0.000, 0.006)], 0.034, Color(0.40, 0.20, 0.10), 0.0, 1)
 			b.cyl(0.036, 0.036, 0.062, Vector3(0, 0.060, 0.052), Color(0.45, 0.46, 0.50), Vector3.ZERO, 12)
 			for i in 6:
 				var a := float(i) / 6.0 * TAU
@@ -597,7 +605,7 @@ static func _shaped(b: Builder, id: String) -> bool:
 			b.box(Vector3(0.009, 0.022, 0.024), Vector3(0, -0.050, 0.100), DARK_STEEL, Vector3(25, 0, 0))  # cão
 			return true
 		"shotgun":  # estilo Winchester 1897 (pump)
-			b.profile([Vector2(-0.50, 0.040), Vector2(-0.488, -0.100), Vector2(-0.30, -0.052), Vector2(-0.14, -0.048), Vector2(-0.098, -0.092), Vector2(-0.056, -0.086), Vector2(-0.034, -0.030), Vector2(0.06, -0.030), Vector2(0.06, 0.0), Vector2(0.15, 0.0), Vector2(0.15, 0.078), Vector2(-0.06, 0.078), Vector2(-0.20, 0.072), Vector2(-0.40, 0.064)], 0.040, Color(0.46, 0.28, 0.14))
+			b.profile([Vector2(-0.50, 0.040), Vector2(-0.488, -0.100), Vector2(-0.30, -0.052), Vector2(-0.14, -0.048), Vector2(-0.098, -0.092), Vector2(-0.056, -0.086), Vector2(-0.034, -0.030), Vector2(0.06, -0.030), Vector2(0.06, 0.0), Vector2(0.15, 0.0), Vector2(0.15, 0.078), Vector2(-0.06, 0.078), Vector2(-0.20, 0.072), Vector2(-0.40, 0.064)], 0.040, Color(0.46, 0.28, 0.14), 0.0, 1)
 			b.profile([Vector2(-0.03, 0.0), Vector2(0.15, 0.0), Vector2(0.15, 0.080), Vector2(-0.03, 0.080)], 0.044, DARK_STEEL)  # carcaça
 			b.cyl(0.0145, 0.0145, 0.64, Vector3(0, 0.46, 0.060), Color(0.20, 0.21, 0.24), Vector3.ZERO, 12)
 			b.cyl(0.011, 0.011, 0.46, Vector3(0, 0.38, 0.030), Color(0.28, 0.29, 0.32), Vector3.ZERO, 10)
@@ -609,7 +617,7 @@ static func _shaped(b: Builder, id: String) -> bool:
 			b.box(Vector3(0.008, 0.008, 0.030), Vector3(0, -0.020, -0.020), DARK_STEEL)
 			return true
 		"hunting_rifle":  # estilo M1903A4 com luneta
-			b.profile([Vector2(-0.42, 0.040), Vector2(-0.410, -0.085), Vector2(-0.26, -0.055), Vector2(-0.11, -0.050), Vector2(-0.075, -0.095), Vector2(-0.030, -0.090), Vector2(-0.010, -0.040), Vector2(0.06, -0.034), Vector2(0.50, -0.030), Vector2(0.50, 0.024), Vector2(0.12, 0.030), Vector2(-0.02, 0.038), Vector2(-0.10, 0.052), Vector2(-0.26, 0.070)], 0.040, Color(0.42, 0.26, 0.13))
+			b.profile([Vector2(-0.42, 0.040), Vector2(-0.410, -0.085), Vector2(-0.26, -0.055), Vector2(-0.11, -0.050), Vector2(-0.075, -0.095), Vector2(-0.030, -0.090), Vector2(-0.010, -0.040), Vector2(0.06, -0.034), Vector2(0.50, -0.030), Vector2(0.50, 0.024), Vector2(0.12, 0.030), Vector2(-0.02, 0.038), Vector2(-0.10, 0.052), Vector2(-0.26, 0.070)], 0.040, Color(0.42, 0.26, 0.13), 0.0, 1)
 			b.profile([Vector2(-0.08, 0.020), Vector2(0.12, 0.020), Vector2(0.12, 0.068), Vector2(-0.08, 0.068)], 0.034, DARK_STEEL)
 			b.cyl(0.0115, 0.0115, 0.70, Vector3(0, 0.40, 0.050), Color(0.22, 0.23, 0.26), Vector3.ZERO, 10)
 			b.cyl(0.018, 0.018, 0.22, Vector3(0, 0.05, 0.108), GUN_BLACK, Vector3.ZERO, 12)  # luneta
@@ -622,7 +630,7 @@ static func _shaped(b: Builder, id: String) -> bool:
 			b.box(Vector3(0.008, 0.07, 0.008), Vector3(0, 0.015, -0.045), DARK_STEEL)
 			return true
 		"rifle_22":  # estilo M1 Carbine
-			b.profile([Vector2(-0.38, 0.035), Vector2(-0.372, -0.078), Vector2(-0.22, -0.050), Vector2(-0.10, -0.046), Vector2(-0.066, -0.088), Vector2(-0.028, -0.084), Vector2(-0.010, -0.036), Vector2(0.05, -0.030), Vector2(0.42, -0.024), Vector2(0.42, 0.030), Vector2(0.10, 0.036), Vector2(-0.02, 0.040), Vector2(-0.10, 0.056), Vector2(-0.22, 0.064)], 0.036, Color(0.60, 0.40, 0.22))
+			b.profile([Vector2(-0.38, 0.035), Vector2(-0.372, -0.078), Vector2(-0.22, -0.050), Vector2(-0.10, -0.046), Vector2(-0.066, -0.088), Vector2(-0.028, -0.084), Vector2(-0.010, -0.036), Vector2(0.05, -0.030), Vector2(0.42, -0.024), Vector2(0.42, 0.030), Vector2(0.10, 0.036), Vector2(-0.02, 0.040), Vector2(-0.10, 0.056), Vector2(-0.22, 0.064)], 0.036, Color(0.60, 0.40, 0.22), 0.0, 1)
 			b.profile([Vector2(-0.07, 0.030), Vector2(0.10, 0.030), Vector2(0.10, 0.070), Vector2(-0.07, 0.070)], 0.030, DARK_STEEL)
 			b.profile([Vector2(0.10, 0.024), Vector2(0.40, 0.024), Vector2(0.40, 0.056), Vector2(0.10, 0.060)], 0.034, Color(0.66, 0.46, 0.26))  # guarda-mão
 			b.cyl(0.0095, 0.0095, 0.62, Vector3(0, 0.40, 0.056), Color(0.22, 0.23, 0.26), Vector3.ZERO, 8)
