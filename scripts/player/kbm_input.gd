@@ -18,7 +18,14 @@ func _exit_tree() -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		_set_active(true)
-	elif event is InputEventMouseButton or event is InputEventMouseMotion:
+	elif event is InputEventMouseMotion:
+		# Tratado aqui (e não em _unhandled_input) para a interface nunca engolir o movimento do mouse.
+		if event.device != InputEvent.DEVICE_ID_EMULATION:
+			_set_active(true)
+			if _can_play():
+				player.rig.apply_look(event.relative)
+				get_viewport().set_input_as_handled()
+	elif event is InputEventMouseButton:
 		if event.device != InputEvent.DEVICE_ID_EMULATION:
 			_set_active(true)
 	elif event is InputEventScreenTouch and event.pressed and event.device != InputEvent.DEVICE_ID_EMULATION:
@@ -47,7 +54,7 @@ func _process(_delta: float) -> void:
 	if active and Input.mouse_mode != want:
 		Input.mouse_mode = want
 	# Segurar o botão esquerdo repete golpes de arma branca
-	if _can_play() and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and GameSettings.action_down("attack"):
+	if _can_play() and GameSettings.action_down("attack"):
 		var e: Dictionary = player.inventory.equipped_entry()
 		if e.is_empty() or not ItemDB.is_firearm(str(e["id"])):
 			player._try_attack()
@@ -70,13 +77,9 @@ func _mouse_action(event: InputEvent) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not _can_play():
 		return
-	var captured := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
-	if event is InputEventMouseMotion and captured and event.device != InputEvent.DEVICE_ID_EMULATION:
-		player.rig.apply_look(event.relative)
-	elif event is InputEventMouseButton and event.device != InputEvent.DEVICE_ID_EMULATION:
+	if event is InputEventMouseButton and event.device != InputEvent.DEVICE_ID_EMULATION:
 		if GameSettings.event_is(event, "attack"):
-			if captured:
-				player._try_attack()
+			player._try_attack()
 		elif GameSettings.event_is(event, "aim"):
 			if not _rmb_down:
 				_rmb_down = true
