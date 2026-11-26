@@ -4,6 +4,7 @@ extends Control
 
 const SettingsMenuScript = preload("res://scripts/ui/settings_menu.gd")
 const CharacterMenuScript = preload("res://scripts/ui/character_menu.gd")
+const UpdateCheckerScript = preload("res://scripts/ui/update_checker.gd")
 
 var _toast: Label
 var _toast_tween: Tween
@@ -16,6 +17,7 @@ func _ready() -> void:
 	_build_title()
 	_build_buttons()
 	_build_footer()
+	add_child(UpdateCheckerScript.new())
 
 
 func _build_background() -> void:

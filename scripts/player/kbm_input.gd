@@ -9,6 +9,7 @@ var player
 var active: bool = false
 var _rmb_prev_blend: float = 0.0
 var _rmb_down: bool = false
+var _finger_down: bool = false
 
 
 func _exit_tree() -> void:
@@ -20,7 +21,8 @@ func _input(event: InputEvent) -> void:
 		_set_active(true)
 	elif event is InputEventMouseMotion:
 		# Tratado aqui (e não em _unhandled_input) para a interface nunca engolir o movimento do mouse.
-		if event.device != InputEvent.DEVICE_ID_EMULATION:
+		# Movimento gerado por um dedo na tela (emulação) é ignorado; qualquer outro vem do mouse.
+		if not _finger_down and event.relative != Vector2.ZERO:
 			_set_active(true)
 			if _can_play():
 				player.rig.apply_look(event.relative)
@@ -28,8 +30,10 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton:
 		if event.device != InputEvent.DEVICE_ID_EMULATION:
 			_set_active(true)
-	elif event is InputEventScreenTouch and event.pressed and event.device != InputEvent.DEVICE_ID_EMULATION:
-		_set_active(false)
+	elif event is InputEventScreenTouch and event.device != InputEvent.DEVICE_ID_EMULATION:
+		_finger_down = event.pressed
+		if event.pressed:
+			_set_active(false)
 
 
 func _set_active(on: bool) -> void:

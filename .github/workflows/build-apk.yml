@@ -61,6 +61,9 @@ jobs:
           EOF
           cp ~/.config/godot/editor_settings-4.3.tres ~/.config/godot/editor_settings-4.tres
 
+      - name: Gravar o número da build no jogo
+        run: sed -i 's/^const BUILD := 0/const BUILD := ${{ github.run_number }}/' scripts/ui/build_info.gd
+
       - name: Importar recursos do projeto
         run: godot --headless --verbose --import || true
 
