@@ -16,38 +16,7 @@ func _exit_tree() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
-var _dbg: Label
-var _dbg_counts: Dictionary = {}
-var _dbg_last: String = ""
-
-
-func _debug(event: InputEvent) -> void:
-	if _dbg == null:
-		var layer := CanvasLayer.new()
-		layer.layer = 100
-		add_child(layer)
-		_dbg = Label.new()
-		_dbg.position = Vector2(12, 120)
-		_dbg.add_theme_font_size_override("font_size", 18)
-		_dbg.add_theme_color_override("font_color", Color(1, 1, 0.2))
-		_dbg.add_theme_color_override("font_outline_color", Color(0, 0, 0))
-		_dbg.add_theme_constant_override("outline_size", 6)
-		_dbg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		layer.add_child(_dbg)
-	var cls := event.get_class()
-	_dbg_counts[cls] = int(_dbg_counts.get(cls, 0)) + 1
-	if event is InputEventMouseMotion:
-		_dbg_last = "%s dev=%d rel=%s" % [cls, event.device, str(event.relative)]
-	elif not (event is InputEventScreenDrag):
-		_dbg_last = "%s dev=%d" % [cls, event.device]
-	var t := "DIAG kbm  ativo=%s  finger=%s  jogando=%s  mouse_mode=%d\n" % [str(active), str(_finger_down), str(_can_play()), Input.mouse_mode]
-	for k in _dbg_counts:
-		t += "%s: %d\n" % [k, _dbg_counts[k]]
-	_dbg.text = t + "ultimo: " + _dbg_last
-
-
 func _input(event: InputEvent) -> void:
-	_debug(event)
 	if event is InputEventKey and event.pressed and not event.echo:
 		_set_active(true)
 	elif event is InputEventMouseMotion:
@@ -61,6 +30,11 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton:
 		if event.device != InputEvent.DEVICE_ID_EMULATION:
 			_set_active(true)
+			# No Android a captura do mouse só pega depois de um toque/clique do usuário:
+			# pedir de novo a cada clique faz o mouse passar a girar a câmera sem segurar o botão.
+			if event.pressed and _can_play():
+				Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+				Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	elif event is InputEventScreenTouch and event.device != InputEvent.DEVICE_ID_EMULATION:
 		_finger_down = event.pressed
 		if event.pressed:
