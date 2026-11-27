@@ -11,6 +11,10 @@ signal attack_pressed
 signal pause_pressed
 signal bag_pressed
 signal reload_pressed
+signal jump_pressed
+signal hotbar_pressed(slot: int)
+
+const HOTBAR_SLOTS := 5
 
 const JOY_RADIUS := 100.0
 const JOY_DEADZONE := 0.12
@@ -19,6 +23,13 @@ const SPRINT_THRESHOLD := 0.95
 var move_vector := Vector2.ZERO  # x: direita, y: para baixo na tela (frente = -y)
 var sprinting: bool = false
 var look_delta := Vector2.ZERO
+## Botão CORRER: toque liga/desliga; solta ao largar o analógico.
+var sprint_toggle: bool = false
+## Dados da hotbar enviados pelo jogador: [{label, active}] (vazio = slot livre).
+var hotbar: Array = []:
+	set(value):
+		hotbar = value
+		queue_redraw()
 
 var action_label: String = "AÇÃO":
 	set(value):
@@ -98,7 +109,11 @@ func _layout_buttons() -> void:
 		"pause": {"center": Vector2(w - 50.0, 50.0), "radius": 28.0 * s, "touch": -1},
 		"bag": {"center": Vector2(w - 140.0, 52.0), "radius": 36.0 * s, "touch": -1},
 		"reload": {"center": Vector2(w - 330.0, h - 150.0), "radius": 38.0 * s, "touch": -1},
+		"jump": {"center": Vector2(w - 70.0, h - 370.0), "radius": 38.0 * s, "touch": -1},
+		"sprint": {"center": Vector2(90.0, h - 330.0), "radius": 38.0 * s, "touch": -1},
 	}
+	for i in HOTBAR_SLOTS:
+		_buttons["slot%d" % i] = {"center": Vector2(w * 0.5 + (i - (HOTBAR_SLOTS - 1) * 0.5) * 76.0, h - 46.0), "radius": 32.0, "touch": -1}
 	queue_redraw()
 
 
@@ -149,6 +164,7 @@ func _touch_up(index: int) -> void:
 		_move_touch = -1
 		move_vector = Vector2.ZERO
 		sprinting = false
+		sprint_toggle = false
 	elif index == _look_touch:
 		_look_touch = -1
 	for id in _buttons:
@@ -189,6 +205,13 @@ func _fire_button(id: String) -> void:
 			bag_pressed.emit()
 		"reload":
 			reload_pressed.emit()
+		"jump":
+			jump_pressed.emit()
+		"sprint":
+			sprint_toggle = not sprint_toggle
+		_:
+			if id.begins_with("slot"):
+				hotbar_pressed.emit(int(id.substr(4)))
 
 
 func _label_for(id: String) -> String:
@@ -207,6 +230,10 @@ func _label_for(id: String) -> String:
 			return "MOCHILA"
 		"reload":
 			return "RECARR."
+		"jump":
+			return "PULAR"
+		"sprint":
+			return "CORRER"
 	return ""
 
 
@@ -228,7 +255,18 @@ func _draw() -> void:
 		var c: Vector2 = b["center"]
 		var r: float = b["radius"]
 		var pressed: bool = b["touch"] != -1
-		var active: bool = (id == "crouch" and crouch_active)
+		var active: bool = (id == "crouch" and crouch_active) or (id == "sprint" and sprint_toggle)
+		if id.begins_with("slot"):
+			var si := int(id.substr(4))
+			var d: Dictionary = hotbar[si] if si < hotbar.size() and hotbar[si] is Dictionary else {}
+			active = bool(d.get("active", false))
+			var sfill := Color(0.9, 0.6, 0.2, 0.55) if (pressed or active) else Color(0.05, 0.05, 0.05, 0.5)
+			draw_circle(c, r, sfill)
+			draw_arc(c, r, 0.0, TAU, 40, Color(1, 0.8, 0.4, 0.95) if active else Color(1, 1, 1, 0.4), 3.0 if active else 2.0)
+			draw_string(font, Vector2(c.x - r + 4.0, c.y - r + 14.0), str(si + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 1, 0.6))
+			if not d.is_empty():
+				draw_string(font, Vector2(c.x - r, c.y + 5.0), str(d.get("label", "")), HORIZONTAL_ALIGNMENT_CENTER, r * 2.0, 12, Color(1, 1, 1, 0.95))
+			continue
 		var fill := Color(0.9, 0.6, 0.2, 0.45) if (pressed or active) else Color(0.05, 0.05, 0.05, 0.45)
 		draw_circle(c, r, fill)
 		draw_arc(c, r, 0.0, TAU, 40, Color(1, 1, 1, 0.45), 2.0)

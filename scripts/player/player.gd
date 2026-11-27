@@ -19,6 +19,9 @@ const WALK_SPEED := 3.2
 const SPRINT_SPEED := 6.0
 const CROUCH_SPEED := 1.6
 const GRAVITY := 22.0
+const JUMP_SPEED := 6.2
+const JUMP_COST := 8.0
+const HOTBAR_SIZE := 5
 const ACCEL := 16.0
 const STAND_HEIGHT := 1.8
 const CROUCH_HEIGHT := 1.2
@@ -51,6 +54,7 @@ var stamina: float = 100.0
 var exhausted: bool = false
 var crouching: bool = false
 var sprinting: bool = false
+var hotbar: Array = [0, 0, 0, 0, 0]  # uids dos itens nos slots
 var dead: bool = false
 var noise_radius: float = 2.0  # raio em que os zumbis "ouvem" o jogador
 var hint_text: String = ""
@@ -107,6 +111,7 @@ func _ready() -> void:
 	_build_visual()
 	_give_starting_items()
 	inventory.changed.connect(_update_weapon_visual)
+	inventory.changed.connect(_refresh_hotbar)
 	_update_weapon_visual()
 
 	rig = CameraRigScript.new()
@@ -124,6 +129,63 @@ func bind_controls(c) -> void:
 	c.attack_pressed.connect(_try_attack)
 	c.bag_pressed.connect(func(): inventory_requested.emit())
 	c.reload_pressed.connect(start_reload)
+	c.jump_pressed.connect(try_jump)
+	c.hotbar_pressed.connect(use_hotbar)
+	_refresh_hotbar()
+
+
+func try_jump() -> void:
+	if dead or ui_locked or not is_on_floor() or crouching or exhausted or stamina < JUMP_COST:
+		return
+	velocity.y = JUMP_SPEED
+	stamina -= JUMP_COST
+	_regen_timer = REGEN_DELAY
+	noise_radius = maxf(noise_radius, 10.0)
+
+
+func _hotbar_usable(id: String) -> bool:
+	if ItemDB.is_weapon(id):
+		return true
+	var d := ItemDB.get_item(id)
+	for k in ["food", "water", "heal", "stop_bleed", "disinfect", "painkill", "antibiotic", "splint", "suture"]:
+		if d.has(k) and (not (d[k] is float or d[k] is int) or float(d[k]) != 0.0):
+			return true
+	return false
+
+
+func _refresh_hotbar() -> void:
+	for i in HOTBAR_SIZE:
+		if int(hotbar[i]) != 0 and inventory.find_uid(int(hotbar[i])).is_empty():
+			hotbar[i] = 0
+	for e in inventory.entries:
+		var uid := int(e["uid"])
+		if hotbar.has(uid) or not _hotbar_usable(str(e["id"])):
+			continue
+		var slot := hotbar.find(0)
+		if slot == -1:
+			break
+		hotbar[slot] = uid
+	if controls == null:
+		return
+	var data: Array = []
+	for i in HOTBAR_SIZE:
+		var e: Dictionary = inventory.find_uid(int(hotbar[i])) if int(hotbar[i]) != 0 else {}
+		if e.is_empty():
+			data.append({})
+			continue
+		var nm: String = ItemDB.name_of(str(e["id"]))
+		if nm.length() > 7:
+			nm = nm.substr(0, 6) + "."
+		if int(e["n"]) > 1 and not ItemDB.is_weapon(str(e["id"])):
+			nm += " x%d" % int(e["n"])
+		data.append({"label": nm, "active": inventory.equipped_uid == int(e["uid"])})
+	controls.hotbar = data
+
+
+func use_hotbar(slot: int) -> void:
+	if slot < 0 or slot >= HOTBAR_SIZE or int(hotbar[slot]) == 0 or ui_locked:
+		return
+	use_item(int(hotbar[slot]))
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -143,6 +205,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			inventory_requested.emit()
 		elif GameSettings.event_is(event, "attack"):
 			_try_attack()
+		elif GameSettings.event_is(event, "jump"):
+			try_jump()
+		elif event.keycode >= KEY_1 and event.keycode < KEY_1 + HOTBAR_SIZE:
+			use_hotbar(event.keycode - KEY_1)
 		elif GameSettings.event_is(event, "pause") or event.keycode == KEY_ESCAPE:
 			GameManager.change_state(GameManager.State.PAUSED)
 
@@ -169,7 +235,7 @@ func _physics_process(delta: float) -> void:
 
 	# Postura e velocidade
 	var wants_sprint: bool = GameSettings.action_down("sprint")
-	if controls != null and controls.sprinting:
+	if controls != null and (controls.sprinting or controls.sprint_toggle):
 		wants_sprint = true
 	sprinting = wants_sprint and moving and not crouching and not exhausted and stamina > 0.0 and body.can_sprint()
 

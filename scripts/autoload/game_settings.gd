@@ -64,6 +64,7 @@ const ACTIONS := [
 	["left", "Andar para a esquerda", [KEY_A, KEY_LEFT]],
 	["right", "Andar para a direita", [KEY_D, KEY_RIGHT]],
 	["sprint", "Correr (segurar)", [KEY_SHIFT, 0]],
+	["jump", "Pular", [KEY_SPACE, 0]],
 	["crouch", "Agachar", [KEY_C, KEY_CTRL]],
 	["interact", "Ação / pegar / abrir", [KEY_E, 0]],
 	["attack", "Atacar / atirar", [-MOUSE_BUTTON_LEFT, KEY_F]],
