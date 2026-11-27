@@ -10,6 +10,8 @@ var active: bool = false
 var _rmb_prev_blend: float = 0.0
 var _rmb_down: bool = false
 var _finger_down: bool = false
+var _last_touch_ms: int = -10000
+var _motion_acc: float = 0.0
 
 
 func _exit_tree() -> void:
@@ -73,18 +75,31 @@ func _update_debug_panel() -> void:
 func _input(event: InputEvent) -> void:
 	if GameSettings.debug_input:
 		_debug_event(event)
-	if event is InputEventKey and event.pressed and not event.echo:
-		_set_active(true)
+	if event is InputEventScreenDrag and event.device != InputEvent.DEVICE_ID_EMULATION:
+		_last_touch_ms = Time.get_ticks_msec()
+		_motion_acc = 0.0
+	elif event is InputEventKey and event.pressed and not event.echo:
+		# Só teclas de teclado de verdade ativam (botões do Android como voltar/volume não).
+		if event.device != InputEvent.DEVICE_ID_EMULATION and _is_real_key(event.keycode):
+			_set_active(true)
 	elif event is InputEventMouseMotion:
 		# Tratado aqui (e não em _unhandled_input) para a interface nunca engolir o movimento do mouse.
-		# Movimento gerado por um dedo na tela (emulação) é ignorado; qualquer outro vem do mouse.
-		if not _finger_down and event.relative != Vector2.ZERO:
-			_set_active(true)
-			if _can_play():
-				player.rig.apply_look(event.relative)
-				get_viewport().set_input_as_handled()
+		if _finger_down or event.relative == Vector2.ZERO:
+			return
+		if not active:
+			# Ativa só com movimento de mouse de verdade: não vindo de toque/emulação e com um bom deslocamento.
+			if event.device == InputEvent.DEVICE_ID_EMULATION or Time.get_ticks_msec() - _last_touch_ms < 800:
+				return
+			_motion_acc += event.relative.length()
+			if _motion_acc > 40.0:
+				_motion_acc = 0.0
+				_set_active(true)
+			return
+		if _can_play():
+			player.rig.apply_look(event.relative)
+			get_viewport().set_input_as_handled()
 	elif event is InputEventMouseButton:
-		if event.device != InputEvent.DEVICE_ID_EMULATION:
+		if event.device != InputEvent.DEVICE_ID_EMULATION and Time.get_ticks_msec() - _last_touch_ms >= 800:
 			_set_active(true)
 			# No Android a captura do mouse só pega depois de um toque/clique do usuário:
 			# pedir de novo a cada clique faz o mouse passar a girar a câmera sem segurar o botão.
@@ -93,8 +108,16 @@ func _input(event: InputEvent) -> void:
 				Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	elif event is InputEventScreenTouch and event.device != InputEvent.DEVICE_ID_EMULATION:
 		_finger_down = event.pressed
+		_last_touch_ms = Time.get_ticks_msec()
+		_motion_acc = 0.0
 		if event.pressed:
 			_set_active(false)
+
+
+static func _is_real_key(code: int) -> bool:
+	if code >= KEY_SPACE and code <= KEY_ASCIITILDE:
+		return true
+	return code in [KEY_TAB, KEY_ENTER, KEY_ESCAPE, KEY_SHIFT, KEY_CTRL, KEY_ALT, KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN, KEY_F1, KEY_F2, KEY_F3, KEY_F4, KEY_F5, KEY_F6, KEY_F7, KEY_F8, KEY_F9, KEY_F10, KEY_F11, KEY_F12]
 
 
 func _set_active(on: bool) -> void:
